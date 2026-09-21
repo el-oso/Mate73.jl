@@ -1,5 +1,5 @@
 """
-    MATTE73
+    MatteSeven
 
 Read and write MATLAB `.mat` files of version 7.3. This package uses only Julia code. It does
 not use the HDF5 C library. It also works inside a small compiled program.
@@ -14,7 +14,7 @@ matsize(f, "A")                      # the size, as MATLAB gives it
 A = matread(f, "A", Matrix{Float64}) # checked against the file
 ```
 """
-module MATTE73
+module MatteSeven
 
 using Mmap
 using Dates: DateTime, Millisecond
@@ -34,4 +34,4 @@ include("macro.jl")
 include("convenience.jl")
 include("write.jl")
 
-end # module MATTE73
+end # module MatteSeven

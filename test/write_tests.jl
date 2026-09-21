@@ -1,5 +1,5 @@
 @testitem "written files round-trip through this package" setup = [Fixtures] begin
-    using MATTE73: matwrite
+    using MatteSeven: matwrite
 
     mktempdir() do dir
         path = joinpath(dir, "out.mat")
@@ -21,7 +21,7 @@
 end
 
 @testitem "libhdf5 reads what this package writes" setup = [Fixtures] begin
-    using MATTE73: matwrite
+    using MatteSeven: matwrite
     import MAT
 
     # The real acceptance test. libhdf5 verifies the superblock and object header checksums,
@@ -48,7 +48,7 @@ end
 end
 
 @testitem "written files carry the MATLAB banner and a 512-byte user block" setup = [Fixtures] begin
-    using MATTE73: matwrite
+    using MatteSeven: matwrite
 
     mktempdir() do dir
         path = joinpath(dir, "out.mat")
@@ -61,12 +61,12 @@ end
 end
 
 @testitem "the writer refuses to emit a file it cannot describe" setup = [Fixtures] begin
-    using MATTE73: matwrite, MatWriter
+    using MatteSeven: matwrite, MatWriter
     @test_throws "nothing to write" matwrite(joinpath(mktempdir(), "empty.mat"), MatWriter())
 end
 
 @testitem "a named tuple writes a struct and a tuple writes a cell" setup = [Fixtures] begin
-    using MATTE73: matwrite
+    using MatteSeven: matwrite
     import MAT
 
     mktempdir() do dir
@@ -94,7 +94,7 @@ end
 end
 
 @testitem "this package reads back the structs and cells it writes" setup = [Fixtures] begin
-    using MATTE73: matwrite, MatRef
+    using MatteSeven: matwrite, MatRef
 
     mktempdir() do dir
         path = joinpath(dir, "nested.mat")
@@ -121,7 +121,7 @@ end
 end
 
 @testitem "a named tuple survives a round trip through a file" setup = [Fixtures] begin
-    using MATTE73: matwrite
+    using MatteSeven: matwrite
 
     # Both halves state their types, so a program built with juliac can write a result and
     # read it back without either step working the type out while it runs.
@@ -140,7 +140,7 @@ end
 end
 
 @testitem "the cell contents live under a name MATLAB reserves" setup = [Fixtures] begin
-    using MATTE73: matwrite
+    using MatteSeven: matwrite
 
     mktempdir() do dir
         path = joinpath(dir, "cells.mat")
@@ -154,6 +154,6 @@ end
 end
 
 @testitem "an empty cell array is refused rather than written wrong" setup = [Fixtures] begin
-    using MATTE73: matwrite, MatWriter
+    using MatteSeven: matwrite, MatWriter
     @test_throws "empty cell array" push!(MatWriter(), "c", ())
 end

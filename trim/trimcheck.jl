@@ -15,14 +15,14 @@ using TrimCheck
 @testset "entry points are trim-safe" begin
     @validate(
         init = begin
-            using MATTE73
+            using MatteSeven
             # The macro expands to ordinary typed reads, so a function that uses it must
             # verify like any other. This is the root that proves it.
             #
             # `@eval` because the whole init block is expanded before `using` runs, so the
             # macro is not known yet at that point.
-            @eval function loadfields(f::MATTE73.MatFile)
-                return MATTE73.@matload f begin
+            @eval function loadfields(f::MatteSeven.MatFile)
+                return MatteSeven.@matload f begin
                     a::Matrix{Float64}
                     n::Int64
                     label::String
@@ -31,75 +31,75 @@ using TrimCheck
             end
             # The same block given a path rather than an open file.
             @eval function loadfrompath(path::String)
-                return MATTE73.@matload path begin
+                return MatteSeven.@matload path begin
                     a::Matrix{Float64}
                     label::String
                 end
             end
             # The same block starting at a mark rather than at the top of the file.
-            @eval function loadbelow(f::MATTE73.MatFile, r::MATTE73.MatRef)
-                return MATTE73.@matload f, r begin
+            @eval function loadbelow(f::MatteSeven.MatFile, r::MatteSeven.MatRef)
+                return MatteSeven.@matload f, r begin
                     count = "count"::Float64
                     values = "inner/values"::Matrix{Float64}
                     label = "label"::String
                 end
             end
         end,
-        Main.loadfields(MATTE73.MatFile),
+        Main.loadfields(MatteSeven.MatFile),
         Main.loadfrompath(String),
-        Main.loadbelow(MATTE73.MatFile, MATTE73.MatRef),
-        MATTE73.matref(MATTE73.MatFile, MATTE73.MatRef, String),
-        MATTE73.matread(MATTE73.MatFile, MATTE73.MatRef, String, Type{Float64}),
-        MATTE73.matread(MATTE73.MatFile, MATTE73.MatRef, String, Type{Matrix{Float64}}),
-        MATTE73.matread(MATTE73.MatFile, MATTE73.MatRef, String, Type{String}),
-        MATTE73.matread(MATTE73.MatFile, MATTE73.MatRef, String, Type{Matrix{MATTE73.MatRef}}),
-        MATTE73.matread(MATTE73.MatFile, MATTE73.MatRef, String, Type{Matrix{MATTE73.DateTime}}),
-        MATTE73.matread(MATTE73.MatFile, MATTE73.MatRef, String, Type{Matrix{String}}),
-        MATTE73.matread(MATTE73.MatFile, MATTE73.MatRef, String, Type{Array{Char, 2}}),
-        MATTE73.matopen(String),
-        MATTE73.matread(String, String, Type{Matrix{Float64}}),
-        MATTE73.matread(String, String, Type{String}),
-        MATTE73.matsize(MATTE73.MatFile, String),
-        MATTE73.matclass(MATTE73.MatFile, String),
-        MATTE73.matread(MATTE73.MatFile, String, Type{Float64}),
-        MATTE73.matread(MATTE73.MatFile, String, Type{Matrix{Float64}}),
-        MATTE73.matread(MATTE73.MatFile, String, Type{Array{Float64, 3}}),
-        MATTE73.matread(MATTE73.MatFile, String, Type{Matrix{Float32}}),
-        MATTE73.matread(MATTE73.MatFile, String, Type{Matrix{Int32}}),
-        MATTE73.matread(MATTE73.MatFile, String, Type{Matrix{UInt8}}),
-        MATTE73.matread(MATTE73.MatFile, String, Type{Matrix{Bool}}),
-        MATTE73.matread(MATTE73.MatFile, String, Type{Matrix{ComplexF64}}),
-        MATTE73.matread(MATTE73.MatFile, String, Type{String}),
-        MATTE73.matread(MATTE73.MatFile, String, Type{Matrix{MATTE73.DateTime}}),
-        MATTE73.matread(MATTE73.MatFile, String, Type{Matrix{String}}),
-        MATTE73.matread(MATTE73.MatFile, MATTE73.MatRef, Type{Matrix{String}}),
-        MATTE73.matread(
-            MATTE73.MatFile, String,
+        Main.loadbelow(MatteSeven.MatFile, MatteSeven.MatRef),
+        MatteSeven.matref(MatteSeven.MatFile, MatteSeven.MatRef, String),
+        MatteSeven.matread(MatteSeven.MatFile, MatteSeven.MatRef, String, Type{Float64}),
+        MatteSeven.matread(MatteSeven.MatFile, MatteSeven.MatRef, String, Type{Matrix{Float64}}),
+        MatteSeven.matread(MatteSeven.MatFile, MatteSeven.MatRef, String, Type{String}),
+        MatteSeven.matread(MatteSeven.MatFile, MatteSeven.MatRef, String, Type{Matrix{MatteSeven.MatRef}}),
+        MatteSeven.matread(MatteSeven.MatFile, MatteSeven.MatRef, String, Type{Matrix{MatteSeven.DateTime}}),
+        MatteSeven.matread(MatteSeven.MatFile, MatteSeven.MatRef, String, Type{Matrix{String}}),
+        MatteSeven.matread(MatteSeven.MatFile, MatteSeven.MatRef, String, Type{Array{Char, 2}}),
+        MatteSeven.matopen(String),
+        MatteSeven.matread(String, String, Type{Matrix{Float64}}),
+        MatteSeven.matread(String, String, Type{String}),
+        MatteSeven.matsize(MatteSeven.MatFile, String),
+        MatteSeven.matclass(MatteSeven.MatFile, String),
+        MatteSeven.matread(MatteSeven.MatFile, String, Type{Float64}),
+        MatteSeven.matread(MatteSeven.MatFile, String, Type{Matrix{Float64}}),
+        MatteSeven.matread(MatteSeven.MatFile, String, Type{Array{Float64, 3}}),
+        MatteSeven.matread(MatteSeven.MatFile, String, Type{Matrix{Float32}}),
+        MatteSeven.matread(MatteSeven.MatFile, String, Type{Matrix{Int32}}),
+        MatteSeven.matread(MatteSeven.MatFile, String, Type{Matrix{UInt8}}),
+        MatteSeven.matread(MatteSeven.MatFile, String, Type{Matrix{Bool}}),
+        MatteSeven.matread(MatteSeven.MatFile, String, Type{Matrix{ComplexF64}}),
+        MatteSeven.matread(MatteSeven.MatFile, String, Type{String}),
+        MatteSeven.matread(MatteSeven.MatFile, String, Type{Matrix{MatteSeven.DateTime}}),
+        MatteSeven.matread(MatteSeven.MatFile, String, Type{Matrix{String}}),
+        MatteSeven.matread(MatteSeven.MatFile, MatteSeven.MatRef, Type{Matrix{String}}),
+        MatteSeven.matread(
+            MatteSeven.MatFile, String,
             Type{NamedTuple{(:a, :b), Tuple{Vector{Float64}, Vector{String}}}},
         ),
-        MATTE73.matread(MATTE73.MatFile, String, Type{Matrix{MATTE73.MatRef}}),
-        MATTE73.matread(MATTE73.MatFile, MATTE73.MatRef, Type{Matrix{Float64}}),
-        MATTE73.matread(MATTE73.MatFile, MATTE73.MatRef, Type{String}),
-        MATTE73.matclass(MATTE73.MatFile, MATTE73.MatRef),
-        MATTE73.matsize(MATTE73.MatFile, MATTE73.MatRef),
-        MATTE73.matkeys(MATTE73.MatFile, String),
-        MATTE73.matobjectclass(MATTE73.MatFile, String),
-        Base.push!(MATTE73.MatWriter, String, Matrix{Float64}),
-        Base.push!(MATTE73.MatWriter, String, Matrix{Bool}),
-        Base.push!(MATTE73.MatWriter, String, Float64),
-        Base.push!(MATTE73.MatWriter, String, String),
+        MatteSeven.matread(MatteSeven.MatFile, String, Type{Matrix{MatteSeven.MatRef}}),
+        MatteSeven.matread(MatteSeven.MatFile, MatteSeven.MatRef, Type{Matrix{Float64}}),
+        MatteSeven.matread(MatteSeven.MatFile, MatteSeven.MatRef, Type{String}),
+        MatteSeven.matclass(MatteSeven.MatFile, MatteSeven.MatRef),
+        MatteSeven.matsize(MatteSeven.MatFile, MatteSeven.MatRef),
+        MatteSeven.matkeys(MatteSeven.MatFile, String),
+        MatteSeven.matobjectclass(MatteSeven.MatFile, String),
+        Base.push!(MatteSeven.MatWriter, String, Matrix{Float64}),
+        Base.push!(MatteSeven.MatWriter, String, Matrix{Bool}),
+        Base.push!(MatteSeven.MatWriter, String, Float64),
+        Base.push!(MatteSeven.MatWriter, String, String),
         # A struct and a cell, each holding the other, so the nesting is verified too.
         Base.push!(
-            MATTE73.MatWriter, String,
+            MatteSeven.MatWriter, String,
             NamedTuple{
                 (:gain, :label, :items),
                 Tuple{Float64, String, Tuple{Float64, Matrix{Float64}}},
             },
         ),
         Base.push!(
-            MATTE73.MatWriter, String,
+            MatteSeven.MatWriter, String,
             Tuple{Matrix{Float64}, String, NamedTuple{(:n,), Tuple{Int64}}},
         ),
-        MATTE73.matwrite(String, MATTE73.MatWriter),
+        MatteSeven.matwrite(String, MatteSeven.MatWriter),
     )
 end

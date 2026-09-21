@@ -2,7 +2,7 @@
 # `#subsystem#` — so these check that the indirection resolves to the same values MAT.jl gets.
 
 @testsnippet Objects begin
-    using MATTE73
+    using MatteSeven
     import MAT
     const OBJFILE = joinpath(@__DIR__, "fixtures", "v7.3", "user_defined_classdefs.mat")
 
@@ -55,7 +55,7 @@ end
 @testitem "matclass still reports objects as unsupported" setup = [Objects] begin
     # matclass answers the plain-array question, and an object is not a plain array; its class
     # name comes from matobjectclass instead.
-    using MATTE73: MAT_UNSUPPORTED
+    using MatteSeven: MAT_UNSUPPORTED
     f = matopen(OBJFILE)
     @test matclass(f, "obj_with_vals") == MAT_UNSUPPORTED
 end

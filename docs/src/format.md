@@ -281,57 +281,68 @@ MATLAB puts them too. An item must be linked under some name, or nothing could w
 
 This package does not compress. Files are therefore larger than the files MATLAB writes.
 
-## What this package does not do
+## Where the package stops
 
-Two limits are quiet. The package gives an answer, but not the answer you asked for. These
-come first, because a quiet limit is easy to miss.
+**Read this part first: two limits give you an answer that is not the one you asked for.**
 
-- **The order of struct fields.** `matkeys` gives the names in file order. MATLAB may use a
-  different order. The names are correct. The values are correct. Only the order can differ.
-  MATLAB keeps its order in a note named `MATLAB_fields`. That note uses a storage area this
-  package does not read yet.
-- **Arrays of objects.** One variable can point to many objects. This package uses the first
-  one. `matobjectclass`, `matkeys` and a property path all describe that first object.
+Everything else on this page either works or stops with an error. These 2 do neither.
 
-The other limits stop with an error, or report `MAT_UNSUPPORTED`.
+**The order of struct fields.** `matkeys` gives the names in the order the file holds them.
+MATLAB may show them in another order. Every name is right and every value is right. Only the
+order can differ. MATLAB keeps its own order in a note named `MATLAB_fields`, which sits in a
+part of the file this package does not read.
 
-- **Sparse arrays.** When this is added, `SparseArrays` must be an optional dependency. It
-  pulls in a library that looks up files on disk when it starts. A small compiled program then
-  stops before it runs, if it cannot find those files. So it must stay off the normal path.
-- **Objects of the MATLAB types** `duration` and `calendarDuration`. These are objects like
-  any other. Their class and their properties read correctly. Building the value that MATLAB
-  shows needs a rule for each type, and only `datetime`, `string`, `categorical` and `table`
-  have one so far. Classes you write yourself need no such rule.
-- **Calling a function handle.** The file holds a name, or the text of an expression. Turning
-  either one into something you can call is a job for a different tool.
-- **An element of a `categorical` with no choice.** MATLAB shows it as `<undefined>`. There
-  is no text for it, so this stops with an error rather than giving back an empty one.
+**Arrays of objects.** One variable can stand for many objects. This package uses the first
+one. `matobjectclass`, `matkeys` and every property path describe that first object, and say
+nothing about the rest.
+
+### What stops with an error
+
+You will see these. They do not pass silently.
+
+| you asked for | what happens |
+|---|---|
+| a sparse array | error |
+| a `duration` or `calendarDuration` value | error; the class and the properties still read |
+| a `categorical` element MATLAB shows as `<undefined>` | error; there is no text to give |
+| a property MATLAB keeps in the table rather than beside it | error; only a property with an address can be followed |
+| a cell array with no items, on write | error |
+| text above code point 65535, as `Array{Char,N}` | 2 units, not 1; the `String` method joins them |
+
+The last row is the one to watch. MATLAB keeps text as 16-bit units and `Array{Char,N}` gives
+you those units one for one, so a rare character arrives as a pair. Ask for a `String` and the
+pair is joined for you. MAT.jl gives one `String` for each row instead; this package gives what
+MATLAB stored.
+
+### What is not built yet
+
+Nothing here is a decision against the feature. It is work not done.
+
+- **Writing** complex numbers, sparse arrays, `datetime`, `string`, `categorical`, `table` or
+  objects. All of these read.
+- **Compression on write.** Every array goes in one block, so a file is larger than the one
+  MATLAB writes for the same data.
 - **The row names of a table.** Only the columns are read.
-- **The default value of a property.** A class can give a property a value in its own
-  definition. MATLAB keeps those values in a part of the table this package does not read
-  yet, so an object that never set the property lists no property at all.
-- **Properties kept in the table.** Most properties point to a value elsewhere. Some small
-  ones sit in the table itself. Only the first kind has an address to follow, so the second
-  kind stops with an error.
-- **Text above code point 65535.** MATLAB keeps text as 16-bit units. `Array{Char,N}` gives
-  you those units, one for one. One rare character then arrives as 2 units. The `String`
-  method joins them correctly. MAT.jl gives one `String` for each row instead. This package
-  gives what MATLAB stores.
-- **Compression when writing.** Arrays are written in one block each.
-- **Writing a cell array with no items.** A cell of one row needs at least one item, so an
-  empty tuple stops with an error rather than writing a shape MATLAB may not accept.
-- **Writing complex numbers, sparse arrays, `datetime`, `string` or objects.** These read, but
-  nothing writes them yet.
+- **The value a class gives a property in its own definition.** An object that never set the
+  property lists no property at all.
+- **Calling a function handle.** The file holds a name, or the text of an expression, never
+  code. Turning either into something callable is a job for another tool.
 
-`keys(f)` also lists 2 names that MATLAB uses for itself: `#refs#` and `#subsystem#`. They
-hold the contents of cells and the object tables. Skip them if you only want your own
-variables.
+Sparse arrays are the one item with a condition attached. `SparseArrays` looks up files on
+disk when it loads, and a small compiled program stops before it runs if it cannot find them.
+So sparse support has to arrive as an optional dependency, off the path every other read takes.
 
-The package does not read some file layouts: fractal heap groups, superblock versions 1 and 3,
-and filters other than deflate and shuffle. MATLAB does not write these. Other tools can.
+### Limits of the reader itself
 
-Two limits are set by fixed sizes in the code: 8 dimensions for an array, and 4 filters for
-one array. MATLAB stays far below both.
+The package reads the shapes MATLAB writes. Another tool can write HDF5 that MATLAB never
+would, and those stop with an error: fractal heap groups, superblock versions 1 and 3, data
+layout version 4, shared header messages, and filters other than deflate and shuffle.
+
+Two limits are fixed in the code: 8 dimensions for one array, and 4 filters for one array.
+MATLAB stays far below both.
+
+`keys(f)` lists 2 names MATLAB keeps for itself, `#refs#` and `#subsystem#`, holding the
+contents of cells and the object tables. Skip them if you only want your own variables.
 
 ## Tests
 

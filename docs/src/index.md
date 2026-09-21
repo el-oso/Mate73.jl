@@ -1,4 +1,4 @@
-# MATTE73.jl
+# MatteSeven.jl
 
 **This package reads and writes MATLAB `.mat` files of version 7.3. It uses only Julia code.
 It does not use the HDF5 C library. It also works inside a small compiled program.**
@@ -11,7 +11,7 @@ the small-program support is for.
 ## Example
 
 ```julia
-using MATTE73
+using MatteSeven
 
 d = matread("results.mat")             # every variable, in a Dict
 d["A"]
@@ -189,7 +189,7 @@ end
 ```
 
 The same read without the macro is [`matread(f, mark, path, T)`](@ref
-matread(::MATTE73.MatFile, ::MATTE73.MatRef, ::String, ::Type)).
+matread(::MatteSeven.MatFile, ::MatteSeven.MatRef, ::String, ::Type)).
 
 ### Example 7: one variable, no block
 
@@ -236,7 +236,7 @@ You give `matwrite` a name and a value for each variable:
 ### Example 1: one flat file
 
 ```julia
-using MATTE73
+using MatteSeven
 
 matwrite("out.mat", "A" => rand(4, 4), "flags" => [true, false], "label" => "run 3")
 ```
@@ -277,7 +277,7 @@ either as well. There is no limit to the depth.
 ### Example 3: build the variables in a loop
 
 Nothing is written until the end, because the place of each variable in the file depends on
-the size of every other one. So collect them first with [`MatWriter`](@ref MATTE73.MatWriter).
+the size of every other one. So collect them first with [`MatWriter`](@ref MatteSeven.MatWriter).
 
 ```julia
 w = MatWriter()
@@ -354,14 +354,14 @@ matches MATLAB.
 
 **Use MAT.jl. Use this package only if you need one of 2 things.**
 
-Pick MATTE73.jl when you need:
+Pick MatteSeven.jl when you need:
 
 - no C library among your dependencies, or
 - to read a `.mat` file inside a small compiled program.
 
 For everything else, MAT.jl is the better tool.
 
-| | MAT.jl | MATTE73.jl |
+| | MAT.jl | MatteSeven.jl |
 |---|---|---|
 | MATLAB versions | 4, 5, 6, 7 and 7.3 | 7.3 only |
 | The HDF5 C library | needed | not used |
