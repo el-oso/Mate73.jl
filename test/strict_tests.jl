@@ -6,7 +6,7 @@
 # shapes MATLAB never writes.
 
 @testsnippet Strict begin
-    using MAT73
+    using MATTE73
     import HDF5
 
     "Write one file with HDF5.jl. `setup` is handed the open file to fill."
@@ -18,7 +18,7 @@
 end
 
 @testitem "a damaged object header is refused, not read" setup = [Strict] begin
-    using MAT73: matwrite
+    using MATTE73: matwrite
 
     mktempdir() do dir
         path = joinpath(dir, "out.mat")
@@ -36,7 +36,7 @@ end
 end
 
 @testitem "a damaged superblock is refused, not read" setup = [Strict] begin
-    using MAT73: matwrite
+    using MATTE73: matwrite
 
     mktempdir() do dir
         path = joinpath(dir, "out.mat")
@@ -81,7 +81,7 @@ end
 end
 
 @testitem "a chunk that inflates to the wrong size is refused" setup = [Strict] begin
-    using MAT73: inflate
+    using MATTE73: inflate
     import ChunkCodecLibZlib as Z
 
     # The compressor reports the size it produced; a buffer of the wrong size is not a
@@ -93,7 +93,7 @@ end
 end
 
 @testitem "the writer refuses what MATLAB cannot read back" setup = [Strict] begin
-    using MAT73: matwrite, MatWriter
+    using MATTE73: matwrite, MatWriter
 
     dir = mktempdir()
     @test_throws "already written here" matwrite(
@@ -105,7 +105,7 @@ end
 end
 
 @testitem "libhdf5 opens the empty arrays this package writes" setup = [Strict] begin
-    using MAT73: matwrite
+    using MATTE73: matwrite
     import MAT
 
     # A dataset of 0 bytes is not something the HDF5 C library will open. MATLAB stores the
@@ -126,7 +126,7 @@ end
 end
 
 @testitem "a struct with no fields is still a struct" setup = [Strict] begin
-    using MAT73: matwrite
+    using MATTE73: matwrite
 
     # A group with no links carries only a link-info message, which is the one thing that
     # says it is a group and not a dataset.

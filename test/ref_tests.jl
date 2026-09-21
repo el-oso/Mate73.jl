@@ -2,7 +2,7 @@
 # values, so a path has to be able to start at one instead of at the top of the file.
 
 @testsnippet Marks begin
-    using MAT73
+    using MATTE73
     import MAT
 
     """
@@ -143,7 +143,7 @@ end
     ref = MAT.matread(path)["s"]["testTable"]
     want = NamedTuple{(:Customer, :FlightNum), Tuple{Vector{String}, Vector{Float64}}}
 
-    s = MAT73.MatRef(MAT73.address(f, "s"))
+    s = MATTE73.MatRef(MATTE73.address(f, "s"))
     t = matread(f, s, "testTable", want)
     @test t.Customer == ref[:Customer]
 

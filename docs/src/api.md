@@ -6,7 +6,7 @@ These work out the type from the file. They cannot be used inside a small compil
 
 ```@docs
 matread(::String)
-matread(::MAT73.MatFile, ::Any)
+matread(::MATTE73.MatFile, ::Any)
 ```
 
 ## Reading several variables at once
@@ -20,25 +20,25 @@ matread(::MAT73.MatFile, ::Any)
 ```@docs
 matopen
 matread(::String, ::String, ::Type)
-matread(::MAT73.MatFile, ::MAT73.MatRef, ::String, ::Type)
-matread(::MAT73.MatFile, ::Any, ::Type{<:Number})
+matread(::MATTE73.MatFile, ::MATTE73.MatRef, ::String, ::Type)
+matread(::MATTE73.MatFile, ::Any, ::Type{<:Number})
 matref
 matclass
 matsize
 matkeys
 matobjectclass
 matread
-MAT73.MatFile
-MAT73.MatClass
-MAT73.MatRef
+MATTE73.MatFile
+MATTE73.MatClass
+MATTE73.MatRef
 ```
 
 ## Writing
 
 ```@docs
 matwrite
-MAT73.MatWriter
-push!(::MAT73.MatWriter, ::String, ::Any)
+MATTE73.MatWriter
+push!(::MATTE73.MatWriter, ::String, ::Any)
 ```
 
 **Use `matwrite(path, pairs...)` for the simple case.**

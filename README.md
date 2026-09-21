@@ -1,8 +1,8 @@
-# MAT73.jl
+# MATTE73.jl
 
-[![Docs](https://img.shields.io/badge/docs-dev-blue.svg)](https://el-oso.github.io/MAT73.jl/dev/)
-[![CI](https://github.com/el-oso/MAT73.jl/actions/workflows/CI.yml/badge.svg)](https://github.com/el-oso/MAT73.jl/actions/workflows/CI.yml)
-[![Coverage](https://coveralls.io/repos/github/el-oso/MAT73.jl/badge.svg?branch=master)](https://coveralls.io/github/el-oso/MAT73.jl?branch=master)
+[![Docs](https://img.shields.io/badge/docs-dev-blue.svg)](https://el-oso.github.io/MATTE73.jl/dev/)
+[![CI](https://github.com/el-oso/MATTE73.jl/actions/workflows/CI.yml/badge.svg)](https://github.com/el-oso/MATTE73.jl/actions/workflows/CI.yml)
+[![Coverage](https://coveralls.io/repos/github/el-oso/MATTE73.jl/badge.svg?branch=master)](https://coveralls.io/github/el-oso/MATTE73.jl?branch=master)
 
 **This package reads and writes MATLAB `.mat` files of version 7.3. It uses only Julia code.
 It does not use the HDF5 C library.**
@@ -15,7 +15,7 @@ the small-program support is for.
 ## Example
 
 ```julia
-using MAT73
+using MATTE73
 
 d = matread("results.mat")             # every variable, in a Dict
 d["A"]

@@ -16,7 +16,7 @@ The program needs a `@main` function at the top level of the file. `juliac` copi
 into a fresh place, so a `module` around it does not work.
 
 ```julia
-using MAT73
+using MATTE73
 
 function (@main)(args::Vector{String})::Cint
     out = Core.stdout                     # not Base.stdout

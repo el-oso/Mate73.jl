@@ -13,7 +13,7 @@
     @test matread(f, cells[2], Matrix{Float64}) == boxed(ref[2])
     @test matread(f, cells[3], String) == ref[3]
 
-    using MAT73: MAT_DOUBLE, MAT_CHAR, MAT_CELL
+    using MATTE73: MAT_DOUBLE, MAT_CHAR, MAT_CELL
     @test matclass(f, cells[1]) == MAT_DOUBLE
     @test matclass(f, cells[3]) == MAT_CHAR
     @test matclass(f, cells[4]) == MAT_CELL

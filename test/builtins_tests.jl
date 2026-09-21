@@ -86,7 +86,7 @@ end
 
     path = fixture("struct_table_datetime.mat")
     f = matopen(path)
-    columns = matread(f, "s/testTable/data", Matrix{MAT73.MatRef})
+    columns = matread(f, "s/testTable/data", Matrix{MATTE73.MatRef})
     @test matobjectclass(f, columns[4]) == "categorical"
     got = matread(f, columns[4], Matrix{String})
     @test vec(got) == MAT.matread(path)["s"]["testTable"][:Rating]
@@ -100,7 +100,7 @@ end
     ref = MAT.matread(path)["s"]["testTable"]
 
     # The string columns of the table: the customer names, and the free-text comments.
-    columns = matread(f, "s/testTable/data", Matrix{MAT73.MatRef})
+    columns = matread(f, "s/testTable/data", Matrix{MATTE73.MatRef})
     for (i, name) in ((2, :Customer), (5, :Comment))
         @test matobjectclass(f, columns[i]) == "string"
         got = matread(f, columns[i], Matrix{String})
@@ -114,7 +114,7 @@ end
 
     path = fixture("struct_table_datetime.mat")
     f = matopen(path)
-    columns = matread(f, "s/testTable/data", Matrix{MAT73.MatRef})
+    columns = matread(f, "s/testTable/data", Matrix{MATTE73.MatRef})
     got = matread(f, columns[2])
     @test eltype(got) === String
     @test vec(got) == MAT.matread(path)["s"]["testTable"][:Customer]
@@ -129,10 +129,10 @@ end
     # MATLAB writes MATLAB_object_decode only at the top level. Inside #subsystem# the tag
     # that starts the index array is the only mark left, and it is enough.
     f = matopen(fixture("struct_table_datetime.mat"))
-    columns = matread(f, "s/testTable/data", Matrix{MAT73.MatRef})
+    columns = matread(f, "s/testTable/data", Matrix{MATTE73.MatRef})
     @test matobjectclass(f, columns[3]) == "datetime"
-    @test matclass(f, columns[3]) == MAT73.MAT_UNSUPPORTED
+    @test matclass(f, columns[3]) == MATTE73.MAT_UNSUPPORTED
     # A plain numeric column keeps its own class.
     @test matobjectclass(f, columns[1]) == ""
-    @test matclass(f, columns[1]) == MAT73.MAT_DOUBLE
+    @test matclass(f, columns[1]) == MATTE73.MAT_DOUBLE
 end

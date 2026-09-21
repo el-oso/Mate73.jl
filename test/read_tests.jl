@@ -1,5 +1,5 @@
 @testsnippet Fixtures begin
-    using MAT73
+    using MATTE73
     using MAT: matopen as h5_matopen, read as h5_read
 
     const FIXTURES = joinpath(@__DIR__, "fixtures", "v7.3")
