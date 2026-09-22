@@ -9,9 +9,9 @@
 # Run as: julia --project=. juliac/build.jl
 #
 # The build uses the package's own environment rather than one of its own, so the binary is
-# linked against exactly the dependencies MatteSeven declares and nothing else.
+# linked against exactly the dependencies Mate73 declares and nothing else.
 
-using MatteSeven
+using Mate73
 
 const HERE = @__DIR__
 const ROOT = dirname(HERE)

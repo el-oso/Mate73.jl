@@ -1,8 +1,8 @@
-# MatteSeven.jl
+# Mate73.jl
 
-[![Docs](https://img.shields.io/badge/docs-dev-blue.svg)](https://el-oso.github.io/MatteSeven.jl/dev/)
-[![CI](https://github.com/el-oso/MatteSeven.jl/actions/workflows/CI.yml/badge.svg)](https://github.com/el-oso/MatteSeven.jl/actions/workflows/CI.yml)
-[![Coverage](https://coveralls.io/repos/github/el-oso/MatteSeven.jl/badge.svg?branch=master)](https://coveralls.io/github/el-oso/MatteSeven.jl?branch=master)
+[![Docs](https://img.shields.io/badge/docs-dev-blue.svg)](https://el-oso.github.io/Mate73.jl/dev/)
+[![CI](https://github.com/el-oso/Mate73.jl/actions/workflows/CI.yml/badge.svg)](https://github.com/el-oso/Mate73.jl/actions/workflows/CI.yml)
+[![Coverage](https://coveralls.io/repos/github/el-oso/Mate73.jl/badge.svg?branch=master)](https://coveralls.io/github/el-oso/Mate73.jl?branch=master)
 
 **This package reads and writes MATLAB `.mat` files of version 7.3. It uses only Julia code.
 It does not use the HDF5 C library.**
@@ -15,7 +15,7 @@ the small-program support is for.
 ## Example
 
 ```julia
-using MatteSeven
+using Mate73
 
 d = matread("results.mat")             # every variable, in a Dict
 d["A"]
@@ -323,6 +323,16 @@ this one. The test files come from MATLAB itself.
 Files that this package writes are read back through the same C library. That library checks
 the internal totals in the file. A bad file fails there. A file cannot pass by being wrong in
 the same way twice.
+
+## How this package was written
+
+**Claude wrote much of this package, with a human directing and reviewing it.** The commit log
+says which changes were assisted.
+
+This is worth knowing because a reader deserves to judge the code on the right terms. The
+answer to "is it correct?" does not rest on who typed it: every value is checked against a
+second reader that shares no code with this one, and the file format work is checked against
+files MATLAB itself wrote. Those checks are in the section above, and you can run them.
 
 ## The small-program check
 
