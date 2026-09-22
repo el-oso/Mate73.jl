@@ -1,4 +1,8 @@
-# Mate73.jl
+```@raw html
+<h1 style="display:flex;align-items:center;gap:0.4em">
+  <img src="./assets/mate-icon.png" alt="" width="44" height="44"> Mate73.jl
+</h1>
+```
 
 **This package reads and writes MATLAB `.mat` files of version 7.3. It uses only Julia code.
 It does not use the HDF5 C library. It also works inside a small compiled program.**
