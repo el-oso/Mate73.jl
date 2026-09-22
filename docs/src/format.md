@@ -7,26 +7,29 @@ HDF5 is a general file format for arrays. It says how the bytes are stored. It d
 what MATLAB means by them. The notes beside each array carry that meaning. Their names all
 start with `MATLAB_`.
 
-## What this package reads
+## What this package reads and writes
 
-| MATLAB type | Julia type |
-|---|---|
-| `double`, `single` | `Array{Float64,N}`, `Array{Float32,N}` |
-| `int8` to `int64`, `uint8` to `uint64` | `Array{T,N}` |
-| `logical` | `Array{Bool,N}` |
-| complex numbers | `Array{Complex{T},N}` |
-| `char`, one row | `String` |
-| `char`, any shape | `Array{Char,N}`, as 16-bit units |
-| empty arrays | the shape stays, so a `0x3` stays `0x3` |
-| `cell` | `Array{MatRef,N}`, one mark for each item |
-| `struct` | fields by path; `matkeys` gives the names |
-| struct arrays | each field is an `Array{MatRef,N}` |
-| objects of a class you wrote | properties by path |
-| `datetime` | `Array{DateTime,N}` |
-| `string`, `categorical` | `Array{String,N}` |
-| `table` | a `NamedTuple` of columns |
-| function handles | the values MATLAB stored, by path |
-| objects of a class written before 2008 | properties by path |
+**It reads far more than it writes.** The last column says whether `matwrite` can put the type
+back.
+
+| MATLAB type | you get | written |
+|---|---|---|
+| `double`, `single` | `Array{Float64,N}`, `Array{Float32,N}` | yes |
+| `int8` to `int64`, `uint8` to `uint64` | `Array{T,N}` | yes |
+| `logical` | `Array{Bool,N}` | yes |
+| `char`, one row | `String` | yes |
+| empty arrays | the shape stays, so a `0x3` stays `0x3` | yes |
+| `cell` | `Array{MatRef,N}`, one mark for each item | yes, from a `Tuple` |
+| `struct` | fields by path; `matkeys` gives the names | yes, from a `NamedTuple` |
+| complex numbers | `Array{Complex{T},N}` | no |
+| `char`, any shape | `Array{Char,N}`, as 16-bit units | no |
+| struct arrays | each field is an `Array{MatRef,N}` | no |
+| `datetime` | `Array{DateTime,N}` | no |
+| `string`, `categorical` | `Array{String,N}` | no |
+| `table` | a `NamedTuple` of columns | no |
+| objects of a class you wrote | properties by path | no |
+| function handles | the values MATLAB stored, by path | no |
+| objects of a class written before 2008 | properties by path | no |
 
 ## Boxes with mixed contents
 
@@ -296,6 +299,12 @@ part of the file this package does not read.
 one. `matobjectclass`, `matkeys` and every property path describe that first object, and say
 nothing about the rest.
 
+**A MATLAB class with no rule of its own.** `datetime`, `string`, `categorical` and `table`
+each have a rule that turns their stored parts into the value MATLAB shows. `duration` and
+`calendarDuration` do not, so you get a `Dict` of their properties instead. That is the same
+thing you get for a class you wrote yourself, which is the intended answer there and a partial
+one here.
+
 ### What stops with an error
 
 You will see these. They do not pass silently.
@@ -303,7 +312,6 @@ You will see these. They do not pass silently.
 | you asked for | what happens |
 |---|---|
 | a sparse array | error |
-| a `duration` or `calendarDuration` value | error; the class and the properties still read |
 | a `categorical` element MATLAB shows as `<undefined>` | error; there is no text to give |
 | a property MATLAB keeps in the table rather than beside it | error; only a property with an address can be followed |
 | a cell array with no items, on write | error |
