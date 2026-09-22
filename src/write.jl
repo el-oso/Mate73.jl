@@ -559,10 +559,21 @@ function matwrite(path::String, w::MatWriter)
     return path
 end
 
-function matwrite(path::String, pairs::Pair...)
-    w = MatWriter()
-    for (name, value) in pairs
-        push!(w, String(name), value)
+"""
+Write each pair as a variable.
+
+The loop over the pairs is written out when the program is compiled. A plain loop would not
+do: past 2 pairs Julia stops specialising the trailing arguments, which leaves the type of
+each name and value unknown and the calls on them unresolvable.
+"""
+@generated function matwrite(path::String, pairs::Pair...)
+    adds = [
+        :(addvalue!(w, ROOT, String(pairs[$i].first), pairs[$i].second))
+            for i in eachindex(pairs)
+    ]
+    return quote
+        w = MatWriter()
+        $(adds...)
+        return matwrite(path, w)
     end
-    return matwrite(path, w)
 end

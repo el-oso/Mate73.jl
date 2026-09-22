@@ -138,3 +138,39 @@ end
         @test matread(f, "s") == Dict{String, Any}()
     end
 end
+
+@testitem "a scalar reads whatever rank the file gives it" setup = [Strict] begin
+    import MAT
+
+    # MAT.jl stores a Julia scalar as a rank-1 dataset; MATLAB stores it as 1x1. One value
+    # is one value, so both must read as the number.
+    mktempdir() do dir
+        path = joinpath(dir, "scalars.mat")
+        MAT.matwrite(path, Dict{String, Any}("n" => Int64(7), "x" => 2.5))
+        f = matopen(path)
+        @test matread(f, "n", Int64) === Int64(7)
+        @test matread(f, "x", Float64) === 2.5
+        # The same variables as the arrays they are stored as.
+        @test matread(f, "n", Vector{Int64}) == [7]
+    end
+end
+
+@testitem "the pairs form of matwrite handles more than two pairs" setup = [Strict] begin
+    using Mate73: matwrite
+    import MAT
+
+    # Julia stops specialising trailing arguments past 2, which the generated method works
+    # around. A plain loop would leave the name and value types unknown.
+    mktempdir() do dir
+        path = joinpath(dir, "pairs.mat")
+        matwrite(
+            path, "gain" => 2.5, "count" => Int64(7), "label" => "run 3",
+            "flags" => [true false]
+        )
+        d = MAT.matread(path)
+        @test d["gain"] == 2.5
+        @test d["count"] == 7
+        @test d["label"] == "run 3"
+        @test d["flags"] == [true false]
+    end
+end

@@ -101,5 +101,15 @@ using TrimCheck
             Tuple{Matrix{Float64}, String, NamedTuple{(:n,), Tuple{Int64}}},
         ),
         Mate73.matwrite(String, Mate73.MatWriter),
+        # The pairs form. Past 2 pairs Julia stops specialising the trailing arguments, so
+        # 3 and 4 are the shapes that catch a regression here.
+        Mate73.matwrite(String, Pair{String, Matrix{Float64}}),
+        Mate73.matwrite(
+            String, Pair{String, Float64}, Pair{String, Int64}, Pair{String, String},
+        ),
+        Mate73.matwrite(
+            String, Pair{String, Float64}, Pair{String, Int64}, Pair{String, String},
+            Pair{String, Matrix{Bool}},
+        ),
     )
 end

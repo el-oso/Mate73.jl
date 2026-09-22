@@ -630,9 +630,21 @@ Read a MATLAB scalar as one number.
 MATLAB has no scalar. What it shows as one number is a 1x1 array, so this reads the array and
 gives you the single value. If the variable holds more than one value it stops with an error;
 ask for `Matrix{T}` when you want the array.
+
+The shape is not fixed. MATLAB writes a 1x1, but a file written by another tool may hold the
+same one value at another rank, and one value is one value.
 """
 function matread(f::MatFile, key, ::Type{T}) where {T <: Number}
-    a = matread(f, key, Matrix{T})
+    # The rank comes from the file, so the read is reached through a ladder: every branch
+    # gives back a T, which is what keeps the whole thing usable in a small compiled program.
+    nd = objinfo(f.h5, address(f, key)).nd
+    iszero(nd) && return only1(matread(f, key, Array{T, 0}), key)
+    isone(nd) && return only1(matread(f, key, Vector{T}), key)
+    return only1(matread(f, key, Matrix{T}), key)
+end
+
+"The single value of an array that must hold exactly one."
+function only1(a::AbstractArray{T}, key) where {T}
     isone(length(a)) || error(
         "variable \"", keyname(key), "\" holds ", length(a),
         " values, not 1; ask for an array type",
