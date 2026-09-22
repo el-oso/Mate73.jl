@@ -40,7 +40,11 @@ export default defineConfig({
     ['link', { rel: 'icon', href: 'REPLACE_ME_DOCUMENTER_VITEPRESS_FAVICON' }],
     ['script', {src: `${getBaseRepository(baseTemp.base)}versions.js`}],
     // ['script', {src: '/versions.js'], for custom domains, I guess if deploy_url is available.
-    ['script', {src: `${baseTemp.base}siteinfo.js`}]
+    ['script', {src: `${baseTemp.base}siteinfo.js`}],
+    // The theme sets the logo's height from this variable and takes its width from the
+    // element. Setting only one of the two scales the image along one axis and squashes it,
+    // so the variable has to agree with the width given below.
+    ['style', {}, ':root { --vp-nav-logo-height: 48px; }']
   ],
   
   markdown: {

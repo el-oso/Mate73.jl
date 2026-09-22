@@ -1,6 +1,8 @@
 ```@raw html
-<h1 style="display:flex;align-items:center;gap:0.4em">
-  <img src="./assets/mate-icon.png" alt="" width="44" height="44"> Mate73.jl
+<h1>
+  <img src="./assets/mate-icon.png" alt="" width="44" height="44"
+       style="width:44px;height:44px;flex-shrink:0;vertical-align:-0.25em;margin-right:0.3em">
+  Mate73.jl
 </h1>
 ```
 
