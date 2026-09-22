@@ -1,9 +1,5 @@
 ```@raw html
-<h1>
-  <img src="./assets/mate-icon.png" alt="" width="44" height="44"
-       style="width:44px;height:44px;flex-shrink:0;vertical-align:-0.25em;margin-right:0.3em">
-  Mate73.jl
-</h1>
+<h1 style="white-space:nowrap"><img src="./assets/mate-icon.png" alt="" width="31" height="31" style="display:inline-block;width:31px;height:31px;flex-shrink:0;vertical-align:middle;margin-right:0.35em">Mate73.jl</h1>
 ```
 
 **This package reads and writes MATLAB `.mat` files of version 7.3. It uses only Julia code.
