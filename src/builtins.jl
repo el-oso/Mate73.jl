@@ -69,6 +69,8 @@ A `char` array is a different thing; use the `String` or `Array{Char,N}` method 
 those.
 """
 function matread(f::MatFile, key, ::Type{Array{String, N}}) where {N}
+    # A cell of text, as MATLAB keeps a list of names.
+    iscell(f, key) && return readcellitems(f, key, Array{String, N})
     name = keyname(key)
     class = matobjectclass(f, key)
     class == CATEGORICAL_CLASS && return categorical(f, key, Val(N))

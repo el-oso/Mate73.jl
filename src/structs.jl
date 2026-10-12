@@ -11,7 +11,10 @@ The types the typed reads already know are stored values. A `NamedTuple` is a ta
 a `Tuple` is a cell array, so both have their own methods.
 """
 isrecord(::Type{T}) where {T} = isstructtype(T) && !(
-    T <: Union{Number, AbstractChar, AbstractString, AbstractArray, MatRef, DateTime, Tuple, NamedTuple}
+    T <: Union{
+        Number, AbstractChar, AbstractString, AbstractArray, AbstractDict, MatRef, DateTime,
+        Tuple, NamedTuple,
+    }
 )
 
 "The member `name` of the struct or object at `key`, named by its whole path for errors."
@@ -102,6 +105,17 @@ or as a struct array, one array of marks per field. Both are read here.
 """
 function readrecords(f::MatFile, key, ::Type{Array{T, N}}) where {T, N}
     isgroup(objinfo(f.h5, address(f, key))) && return readstructarray(f, key, Array{T, N})
+    return readcellitems(f, key, Array{T, N})
+end
+
+"Is `key` a cell array?"
+iscell(f::MatFile, key) = objinfo(f.h5, address(f, key)).mclass == "cell"
+
+"""
+Read a cell array item by item, each as `T`. A cell whose items share one type then reads
+into an array of that type, such as a cell of text into `Matrix{String}`.
+"""
+function readcellitems(f::MatFile, key, ::Type{Array{T, N}}) where {T, N}
     items = readmarks(f, key, Array{MatRef, N})
     out = Array{T, N}(undef, size(items))
     for i in eachindex(items)
@@ -277,3 +291,30 @@ macro matstruct(expr)
         end,
     )
 end
+
+"""
+    matread(f, T) -> T
+    matread(path, T) -> T
+
+Read a whole file into a struct type of your own, one field for each variable, as
+[`@matstructs`](@ref) writes for a template file.
+
+```julia
+@matstructs Run "template.mat"
+run = matread("today.mat", Run)
+```
+
+Each field is read from the variable of the same name, as the type it is declared with. You
+state the type, so this works inside a small compiled program.
+"""
+@generated function matread(f::MatFile, ::Type{T}) where {T}
+    (isrecord(T) && isconcretetype(T)) || return :(
+        error("cannot read a whole file as ", $T, ": it is not a struct type")
+    )
+    reads = Expr[
+        :(matread(f, $(String(fieldname(T, i))), $(fieldtype(T, i)))) for i in 1:fieldcount(T)
+    ]
+    return :($T($(reads...)))
+end
+
+matread(path::String, ::Type{T}) where {T} = matread(matopen(path), T)

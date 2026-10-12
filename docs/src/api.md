@@ -25,6 +25,10 @@ matread(::Mate73.MatFile, ::Any, ::Type{<:Number})
 matread(::Mate73.MatFile, ::Any, ::Type)
 matread(::Mate73.MatFile, ::Any, ::Type{T}) where {T <: Tuple}
 @matstruct
+@matstructs
+matstructs
+tostruct
+matread(::Mate73.MatFile, ::Type)
 matref
 matclass
 matsize

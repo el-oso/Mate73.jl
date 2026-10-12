@@ -137,6 +137,39 @@ hold stops with an error. Your type is built with its default constructor.
 The types are stated, so this works inside a small compiled program, and `@matload` takes these
 types too: `@matload f cfg::Settings`.
 
+### Types from a template file: `@matstructs`
+
+**Point the macro at one file, and every file shaped like it reads into concrete, nested types.**
+
+```julia
+@matstructs Cfg "template.mat" "cfg"     # the types of one variable
+@matstructs Run "template.mat"           # one field for every variable in the file
+
+cfg = matread(matopen("today.mat"), "cfg", Cfg)
+run = matread("today.mat", Run)
+cfg.limits.hi
+run.cfg.runs[2].name
+```
+
+The template is read while the code is compiled, and the struct definitions its shape implies
+are written where the macro stands. At run time only the typed reads are left, so the program
+works inside a small compiled program and never holds a `Dict{String,Any}`.
+
+| in the template | the field type |
+|---|---|
+| a struct | a struct of its own, such as `CfgLimits` |
+| a cell of structs of one shape, or a struct array | an array of one struct |
+| a cell whose items share one type | an array of that type, such as `Matrix{String}` |
+| a cell of mixed items | a `Tuple` of their types |
+| a 1x1 number | the number, such as `Float64` |
+| anything else | its own type, such as `Matrix{Float64}` |
+
+To see or edit the definitions instead, `print(matstructs(matread("template.mat")["cfg"], :Cfg))`
+writes the same code as text; `matstructs` also takes a `Dict` from MAT.jl or a nested
+`NamedTuple`. `tostruct(Cfg, d)` converts a `Dict` or `NamedTuple` you already hold into those
+types. From a `NamedTuple` it works inside a small compiled program; from a `Dict{String,Any}`
+it cannot, since every value is `Any` until the program runs.
+
 ### When the names do not match: `@matstruct`
 
 **`@matstruct` lets each field say where it comes from, what to use when it is missing, and

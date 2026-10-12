@@ -538,6 +538,16 @@ The result matches what MATLAB shows. Nothing is turned around.
 function matread(f::MatFile, key, ::Type{Array{T, N}}) where {T, N}
     # An array of structs of your own is read one struct at a time; known while compiling.
     isrecord(T) && return readrecords(f, key, Array{T, N})
+    # A cell of plain values, read item by item. The marks themselves are the `MatRef` read.
+    (T !== MatRef && iscell(f, key)) && return readcellitems(f, key, Array{T, N})
+    return readplain(f, key, Array{T, N})
+end
+
+"""
+The array read itself, with no cell or struct handling. The number read uses it directly, so a
+cell of numbers, read item by item, does not lead back into the array read.
+"""
+function readplain(f::MatFile, key, ::Type{Array{T, N}}) where {T, N}
     name = keyname(key)
     oi = objinfo(f.h5, address(f, key))
     iszero(oi.mobject) || error("variable \"", name, "\" is a MATLAB object, which is not read")
@@ -640,9 +650,9 @@ function matread(f::MatFile, key, ::Type{T}) where {T <: Number}
     # The rank comes from the file, so the read is reached through a ladder: every branch
     # gives back a T, which is what keeps the whole thing usable in a small compiled program.
     nd = objinfo(f.h5, address(f, key)).nd
-    iszero(nd) && return only1(matread(f, key, Array{T, 0}), key)
-    isone(nd) && return only1(matread(f, key, Vector{T}), key)
-    return only1(matread(f, key, Matrix{T}), key)
+    iszero(nd) && return only1(readplain(f, key, Array{T, 0}), key)
+    isone(nd) && return only1(readplain(f, key, Vector{T}), key)
+    return only1(readplain(f, key, Matrix{T}), key)
 end
 
 "The single value of an array that must hold exactly one."

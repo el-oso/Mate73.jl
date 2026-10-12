@@ -180,3 +180,88 @@ end
     using Mate73
     @test_throws "cannot read the line" Mate73.matfield(:(x + 1))
 end
+
+@testsnippet Template begin
+    using Mate73
+    import MAT
+    "A nested result whose values depend on `g`, so two files share a shape but not values."
+    sample(g) = (
+        gain = g, mode = "fast", n = Int32(3), w = [1.0 2.0; 3.0 4.0],
+        limits = (lo = 1.0, hi = 10g), mixed = ([1.0 2.0], "text"),
+        runs = ((name = "a", ok = true), (name = "b", ok = false)), tags = ("x", "y", "z"),
+    )
+end
+
+@testitem "matstructs writes the same types from either reader's Dict" setup = [Template] begin
+    mktempdir() do dir
+        path = joinpath(dir, "t.mat")
+        matwrite(path, "cfg" => sample(2.5))
+        ours = matstructs(matread(path)["cfg"], :Cfg)
+        theirs = matstructs(MAT.matread(path)["cfg"], :Cfg)
+        @test ours == theirs
+        @test occursin("gain::Float64", ours)          # a 1x1 is a scalar
+        @test occursin("runs::Matrix{CfgRuns}", ours)
+        @test occursin("name::String", ours)           # MAT.jl's one-letter Char is text
+        @test occursin("tags::Matrix{String}", ours)
+        @test occursin("mixed::Tuple{Matrix{Float64}, String}", ours)
+
+        nt = matstructs(sample(2.5), :Cfg)
+        @test occursin("runs::Vector{CfgRuns}", nt)  # a tuple is a cell of one row
+        @test occursin("tags::Vector{String}", nt)
+    end
+end
+
+@testitem "tostruct converts a Dict or a NamedTuple into generated types" setup = [Template] begin
+    mktempdir() do dir
+        path = joinpath(dir, "t.mat")
+        matwrite(path, "cfg" => sample(2.5))
+        Base.include_string(@__MODULE__, matstructs(matread(path)["cfg"], :DCfg))
+        Base.include_string(@__MODULE__, matstructs(sample(2.5), :NCfg))
+        for d in (matread(path)["cfg"], MAT.matread(path)["cfg"])
+            s = @invokelatest tostruct(DCfg, d)
+            @test s.gain == 2.5
+            @test s.limits.hi == 25.0
+            @test s.runs[2].name == "b"
+            @test s.tags == ["x" "y" "z"]
+        end
+        n = @invokelatest tostruct(NCfg, sample(2.5))
+        @test n.runs[1].ok
+        @test n.tags == ["x", "y", "z"]
+        @test only(@invokelatest Base.return_types(tostruct, (Type{NCfg}, typeof(sample(2.5))))) === NCfg
+    end
+end
+
+@testitem "a cell of text or numbers reads into a typed array" setup = [Template] begin
+    mktempdir() do dir
+        path = joinpath(dir, "cells.mat")
+        matwrite(path, "tags" => ("x", "y"), "nums" => (1.0, 2.0))
+        f = matopen(path)
+        @test matread(f, "tags", Matrix{String}) == ["x" "y"]
+        @test matread(f, "tags", Vector{String}) == ["x", "y"]
+        @test matread(f, "nums", Matrix{Float64}) == [1.0 2.0]
+    end
+end
+
+@testitem "@matstructs reads files shaped like a template" setup = [Template] begin
+    mktempdir() do dir
+        template = joinpath(dir, "template.mat")
+        today = joinpath(dir, "today.mat")
+        matwrite(template, "cfg" => sample(1.0), "count" => 3, "label" => "template")
+        matwrite(today, "cfg" => sample(7.0), "count" => 9, "label" => "today")
+        # `@eval` so the macro runs after the template exists.
+        @eval @matstructs TCfg $template "cfg"
+        @eval @matstructs TRun $template
+
+        cfg = @invokelatest matread(matopen(today), "cfg", TCfg)
+        @test cfg.gain == 7.0
+        @test cfg.limits.hi == 70.0
+        @test cfg.runs[2].name == "b"
+        run = @invokelatest matread(today, TRun)
+        @test run.label == "today"
+        @test run.count == 9
+        @test run.cfg.limits.hi == 70.0
+        @test only(@invokelatest Base.return_types(matread, (String, Type{TRun}))) === TRun
+
+        @test_throws "has no variable \"nope\"" @eval @matstructs X $template "nope"
+    end
+end

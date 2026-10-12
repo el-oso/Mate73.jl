@@ -57,6 +57,38 @@ using TrimCheck
             end
             # The shape a StructUtils build could not verify: an array of renamed structs
             # inside a struct, with a default and an optional field.
+            # Types as `@matstructs` writes them from a template file.
+            @eval struct GLimits
+                hi::Float64
+                lo::Float64
+            end
+            @eval struct GRuns
+                name::String
+                ok::Bool
+            end
+            @eval struct GCfg
+                gain::Float64
+                limits::GLimits
+                mixed::Tuple{Matrix{Float64}, String}
+                mode::String
+                n::Int32
+                runs::Array{GRuns, 2}
+                tags::Matrix{String}
+                w::Matrix{Float64}
+            end
+            @eval struct GRun
+                cfg::GCfg
+                count::Int64
+                label::String
+            end
+            @eval const GNT = typeof(
+                (
+                    gain = 2.5, mode = "fast", n = Int32(3), w = [1.0 2.0],
+                    limits = (lo = 1.0, hi = 10.0), mixed = ([1.0 2.0], "text"),
+                    runs = ((name = "a", ok = true), (name = "b", ok = false)),
+                    tags = ("x", "y", "z"),
+                ),
+            )
             @eval Mate73.@matstruct struct TrimLim
                 lo = "lower"::Float64
                 hi = "upper"::Float64
@@ -75,6 +107,10 @@ using TrimCheck
         Main.loadbelow(Mate73.MatFile, Mate73.MatRef),
         Mate73.matread(Mate73.MatFile, String, Type{Main.TrimSettings}),
         Mate73.matread(Mate73.MatFile, String, Type{Main.TrimCfg}),
+        Mate73.matread(Mate73.MatFile, String, Type{Main.GCfg}),
+        Mate73.matread(String, Type{Main.GRun}),
+        Mate73.tostruct(Type{Main.GCfg}, Main.GNT),
+        Mate73.matread(Mate73.MatFile, Mate73.MatPath, Type{Matrix{Float64}}),
         Mate73.matread(Mate73.MatFile, String, Type{Matrix{Main.TrimLimits}}),
         Mate73.matread(
             Mate73.MatFile, String, Type{Tuple{Matrix{Float64}, String, Main.TrimLimits}},

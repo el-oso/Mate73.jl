@@ -96,7 +96,8 @@ function decodechunk(f::H5File, oi::ObjInfo, ref::ChunkRef, rawlen::Int)
         elseif fid == FILTER_SHUFFLE
             bytes = unshuffle(bytes, oi.filter_cd1[i])
         else
-            error("unsupported HDF5 filter id ", fid)
+            # Joined by hand: `string` of mixed arguments is not resolvable in a trimmed build.
+            error("unsupported HDF5 filter id " * string(fid))
         end
     end
     return bytes
