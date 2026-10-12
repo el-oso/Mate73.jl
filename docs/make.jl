@@ -14,6 +14,7 @@ makedocs(;
     pages = [
         "Home" => "index.md",
         "The format" => "format.md",
+        "Example: test runs" => "example.md",
         "Trimmed binaries" => "trim.md",
         "API" => "api.md",
     ],

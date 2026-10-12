@@ -116,7 +116,7 @@ types too: `@matload f cfg::Settings`.
 
 Use it for a family of files that share one layout: one file per test run, per day of
 measurements, or per run of a simulation. One of them is the template; the program then reads
-all of them fully typed.
+all of them fully typed. [Example: test runs](example.md) walks through it end to end.
 
 ```julia
 @matstructs Cfg "template.mat" "cfg"     # the types of one variable
