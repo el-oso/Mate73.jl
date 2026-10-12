@@ -98,6 +98,45 @@ The two line forms:
 The first item is a path, an open file, or a file and a mark. With `f, ref` every path in the
 block starts at `ref`.
 
+## Reading into your own types
+
+**Give a struct type of your own, and a MATLAB struct comes back as that type, nested data and
+all.** Nothing passes through `Dict{String,Any}`.
+
+Think of a form with labelled boxes. You hand over the empty form; each box is filled from the
+field of the same name, and a box may hold another whole form.
+
+```julia
+struct Limits
+    lo::Float64
+    hi::Float64
+end
+
+struct Settings
+    gain::Float64          # a 1x1 in the file; the plain number comes back
+    mode::String
+    weights::Matrix{Float64}
+    limits::Limits         # a struct inside the struct
+end
+
+s = matread(f, "cfg", Settings)
+s.limits.hi
+```
+
+| you give | it reads |
+|---|---|
+| a struct type of your own | a struct or an object, one field per name |
+| `Tuple{T1, T2, ...}` | a cell array, one type per item |
+| `Array{T,N}` of your own struct | a cell array of structs, or a struct array |
+
+Each field is read as the type it is declared with, so a field may be any type the typed reads
+take, including another struct of your own, a tuple, or an array of structs. A field the file
+holds but your type does not name is left unread. A field your type names but the file does not
+hold stops with an error. Your type is built with its default constructor.
+
+The types are stated, so this works inside a small compiled program, and `@matload` takes these
+types too: `@matload f cfg::Settings`.
+
 ## What the check does
 
 When you give the type, the package does 3 checks against the file:

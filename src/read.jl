@@ -536,6 +536,8 @@ Use the `String` method instead for one row of text.
 The result matches what MATLAB shows. Nothing is turned around.
 """
 function matread(f::MatFile, key, ::Type{Array{T, N}}) where {T, N}
+    # An array of structs of your own is read one struct at a time; known while compiling.
+    isrecord(T) && return readrecords(f, key, Array{T, N})
     name = keyname(key)
     oi = objinfo(f.h5, address(f, key))
     iszero(oi.mobject) || error("variable \"", name, "\" is a MATLAB object, which is not read")

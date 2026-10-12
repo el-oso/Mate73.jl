@@ -44,10 +44,26 @@ using TrimCheck
                     label = "label"::String
                 end
             end
+            # Types of the caller's own, read field by field, nested, and as arrays and tuples.
+            @eval struct TrimLimits
+                lo::Float64
+                hi::Float64
+            end
+            @eval struct TrimSettings
+                gain::Float64
+                mode::String
+                weights::Matrix{Float64}
+                limits::TrimLimits
+            end
         end,
         Main.loadfields(Mate73.MatFile),
         Main.loadfrompath(String),
         Main.loadbelow(Mate73.MatFile, Mate73.MatRef),
+        Mate73.matread(Mate73.MatFile, String, Type{Main.TrimSettings}),
+        Mate73.matread(Mate73.MatFile, String, Type{Matrix{Main.TrimLimits}}),
+        Mate73.matread(
+            Mate73.MatFile, String, Type{Tuple{Matrix{Float64}, String, Main.TrimLimits}},
+        ),
         Mate73.matref(Mate73.MatFile, Mate73.MatRef, String),
         Mate73.matread(Mate73.MatFile, Mate73.MatRef, String, Type{Float64}),
         Mate73.matread(Mate73.MatFile, Mate73.MatRef, String, Type{Matrix{Float64}}),
