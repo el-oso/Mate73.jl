@@ -137,6 +137,40 @@ hold stops with an error. Your type is built with its default constructor.
 The types are stated, so this works inside a small compiled program, and `@matload` takes these
 types too: `@matload f cfg::Settings`.
 
+### When the names do not match: `@matstruct`
+
+**`@matstruct` lets each field say where it comes from, what to use when it is missing, and
+whether it may be absent.**
+
+```julia
+@matstruct struct Limits
+    lo = "lower"::Float64                       # the MATLAB field has another name
+    hi = "upper"::Float64
+end
+
+@matstruct struct Settings
+    gain::Float64
+    mode::String = "fast"                       # used when the file has no `mode`
+    limits::Vector{Limits}                      # a cell of structs, or a struct array
+    weights::Union{Nothing, Matrix{Float64}}    # `nothing` when absent or empty
+    offset = "calib/offset"::Float64            # a path into a nested struct
+end
+
+s = matread(f, "cfg", Settings)
+```
+
+| you write | it reads |
+|---|---|
+| `name::T` | the field `name` |
+| `name::T = default` | the field `name`, or `default` when the file has none |
+| `name = "path"::T` | that path, which may go down through structs with `/` |
+| `name = "path"::T = default` | that path, or `default` |
+| `name::Union{Nothing, T}` | the field, or `nothing` when it is absent or empty |
+
+The macro writes the struct and a `matread` method for it, with one typed read per field. Every
+path, type and default is known when the macro runs, so the read works inside a small compiled
+program, nested as deep as the types go.
+
 ## What the check does
 
 When you give the type, the package does 3 checks against the file:

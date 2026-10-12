@@ -22,7 +22,7 @@ using ChunkCodecLibZlib: ZlibDecodeOptions
 using ChunkCodecLibZlib.ChunkCodecCore: try_decode!, is_size
 
 export matopen, matread, matref, matsize, matclass, matkeys, matobjectclass, MatClass, MatRef,
-    matwrite, MatWriter, @matload
+    matwrite, MatWriter, @matload, @matstruct
 
 include("lookup3.jl")
 include("hdf5.jl")

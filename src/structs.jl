@@ -90,12 +90,19 @@ match. You state every type, so this works inside a small compiled program.
 end
 
 """
+The marks of a cell array or of one field of a struct array, shaped as asked. MATLAB has no 1-D
+arrays, so a vector is held as a 1xN or an Nx1 and is read through a matrix.
+"""
+readmarks(f::MatFile, key, ::Type{Array{MatRef, N}}) where {N} = matread(f, key, Array{MatRef, N})
+readmarks(f::MatFile, key, ::Type{Vector{MatRef}}) = vec(matread(f, key, Matrix{MatRef}))
+
+"""
 An array of structs of your own. MATLAB keeps one either as a cell array, one struct per item,
 or as a struct array, one array of marks per field. Both are read here.
 """
 function readrecords(f::MatFile, key, ::Type{Array{T, N}}) where {T, N}
     isgroup(objinfo(f.h5, address(f, key))) && return readstructarray(f, key, Array{T, N})
-    items = matread(f, key, Array{MatRef, N})
+    items = readmarks(f, key, Array{MatRef, N})
     out = Array{T, N}(undef, size(items))
     for i in eachindex(items)
         out[i] = matread(f, items[i], T)
@@ -124,7 +131,7 @@ array in MATLAB, so it is read as an array of one.
     names = String[String(fieldname(T, i)) for i in 1:n]
     refs = Symbol[Symbol(:refs, i) for i in 1:n]
     loads = Expr[
-        :($(refs[i]) = matread(f, childkey(f, key, $(names[i])), Array{MatRef, N})) for i in 1:n
+        :($(refs[i]) = readmarks(f, childkey(f, key, $(names[i])), Array{MatRef, N})) for i in 1:n
     ]
     checks = Expr[
         :(
@@ -146,4 +153,127 @@ array in MATLAB, so it is read as an array of one.
         end
         return out
     end
+end
+
+
+# ── @matstruct: a struct whose fields say where they come from ─────────────────
+
+"Does the struct or object at `key` hold `path`? Checks every step, and never stops with an error."
+function haspath(f::MatFile, key, path::String)
+    k = MatPath(address(f, key), keyname(key))
+    for part in split(path, '/'; keepempty = false)
+        name = String(part)
+        name in matkeys(f, k) || return false
+        k = childkey(f, k, name)
+    end
+    return true
+end
+
+"Read the field at `path` below `key` as `T`."
+readfield(f::MatFile, key, path::String, ::Type{T}) where {T} = matread(f, childkey(f, key, path), T)
+
+# An optional field: absent or empty in the file gives `nothing`.
+function readfield(f::MatFile, key, path::String, ::Type{Union{Nothing, T}}) where {T}
+    haspath(f, key, path) || return nothing
+    k = childkey(f, key, path)
+    objinfo(f.h5, address(f, k)).mempty && return nothing
+    return matread(f, k, T)
+end
+
+"A field with a default, used when the file does not hold it."
+function readfield(f::MatFile, key, path::String, ::Type{T}, default) where {T}
+    haspath(f, key, path) || return convert(T, default)
+    return readfield(f, key, path, T)
+end
+
+"""
+Take one line of a `@matstruct` body apart: the Julia field name, its type, the path it is
+read from, and its default expression if it has one.
+"""
+function matfield(line)
+    default, hasdefault = nothing, false
+    if Meta.isexpr(line, :(=)) && Meta.isexpr(line.args[1], :(::))
+        # name::T = default
+        line, default, hasdefault = line.args[1], line.args[2], true
+    end
+    if Meta.isexpr(line, :(::)) && line.args[1] isa Symbol
+        return line.args[1], line.args[2], String(line.args[1]), default, hasdefault
+    end
+    if Meta.isexpr(line, :(=)) && line.args[1] isa Symbol
+        # name = "path"::T, or name = "path"::T = default
+        rhs = line.args[2]
+        if Meta.isexpr(rhs, :(=))
+            rhs, default, hasdefault = rhs.args[1], rhs.args[2], true
+        end
+        if Meta.isexpr(rhs, :(::)) && rhs.args[1] isa String
+            return line.args[1], rhs.args[2], rhs.args[1], default, hasdefault
+        end
+    end
+    return error(
+        "@matstruct cannot read the line `", line, "`; write `name::T`, `name::T = default`,",
+        " `name = \"path\"::T` or `name = \"path\"::T = default`",
+    )
+end
+
+"""
+    @matstruct struct Name
+        field::T
+        field::T = default
+        field = "matlab/path"::T
+        field = "matlab/path"::T = default
+    end
+
+Define a struct and the typed read that fills it from a MATLAB struct or object.
+
+```julia
+@matstruct struct Limits
+    lo = "lower"::Float64           # the MATLAB field has another name
+    hi = "upper"::Float64
+end
+
+@matstruct struct Settings
+    gain::Float64
+    mode::String = "fast"           # used when the file has no `mode`
+    limits::Vector{Limits}          # a cell of structs, or a struct array
+    weights::Union{Nothing, Matrix{Float64}}   # `nothing` when absent or empty
+    offset = "calib/offset"::Float64          # a path into a nested struct
+end
+
+s = matread(f, "cfg", Settings)
+```
+
+Every field's path, type and default are known when the macro runs, so the read it writes is a
+plain call for each field, and the whole read works inside a small compiled program. A field
+whose type is another `@matstruct` struct, or an array of one, is read with that struct's own
+read, so nesting goes as deep as the types do.
+
+A field whose type is `Union{Nothing, T}` is optional without a default. Any other field the
+file does not hold stops with an error, unless it has a default.
+"""
+macro matstruct(expr)
+    Meta.isexpr(expr, :struct) || error("@matstruct takes a struct definition")
+    ismut, head, body = expr.args
+    name = head isa Symbol ? head : Meta.isexpr(head, :<:) ? head.args[1] : head
+    name isa Symbol || error("@matstruct does not take a struct with type parameters")
+    decls = Any[]
+    reads = Expr[]
+    for line in body.args
+        (line isa LineNumberNode || line isa String) && (push!(decls, line); continue)
+        fname, T, path, default, hasdefault = matfield(line)
+        push!(decls, :($fname::$T))
+        push!(
+            reads,
+            hasdefault ? :($readfield(f, key, $path, $T, $default)) :
+                :($readfield(f, key, $path, $T)),
+        )
+    end
+    return esc(
+        quote
+            $(Expr(:struct, ismut, head, Expr(:block, decls...)))
+            function $(Mate73).matread(f::$(MatFile), key, ::Type{$name})
+                return $name($(reads...))
+            end
+            $name
+        end,
+    )
 end

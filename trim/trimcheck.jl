@@ -55,11 +55,26 @@ using TrimCheck
                 weights::Matrix{Float64}
                 limits::TrimLimits
             end
+            # The shape a StructUtils build could not verify: an array of renamed structs
+            # inside a struct, with a default and an optional field.
+            @eval Mate73.@matstruct struct TrimLim
+                lo = "lower"::Float64
+                hi = "upper"::Float64
+            end
+            @eval Mate73.@matstruct struct TrimCfg
+                gain::Float64
+                mode::String = "fast"
+                lims::Vector{TrimLim}
+                grid::Matrix{TrimLim}
+                w::Union{Nothing, Matrix{Float64}}
+                off = "calib/offset"::Float64 = 0.0
+            end
         end,
         Main.loadfields(Mate73.MatFile),
         Main.loadfrompath(String),
         Main.loadbelow(Mate73.MatFile, Mate73.MatRef),
         Mate73.matread(Mate73.MatFile, String, Type{Main.TrimSettings}),
+        Mate73.matread(Mate73.MatFile, String, Type{Main.TrimCfg}),
         Mate73.matread(Mate73.MatFile, String, Type{Matrix{Main.TrimLimits}}),
         Mate73.matread(
             Mate73.MatFile, String, Type{Tuple{Matrix{Float64}, String, Main.TrimLimits}},
