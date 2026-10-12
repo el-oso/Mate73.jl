@@ -208,7 +208,7 @@ macro matstructs(name, path, var...)
     length(var) <= 1 && all(v -> v isa String, var) ||
         error("@matstructs: give at most one variable name, as a string literal")
     dir = isnothing(__source__.file) ? pwd() : dirname(String(__source__.file))
-    file = isabspath(path) ? path : joinpath(dir, path)
+    file = abspath(dir, path)
     d = matread(file)
     if !isempty(var)
         haskey(d, var[1]) || error("@matstructs: \"", file, "\" has no variable \"", var[1], "\"")

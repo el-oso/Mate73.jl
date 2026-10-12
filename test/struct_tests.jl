@@ -37,7 +37,9 @@ end
         f = matopen(path)
         s = matread(f, "cfg", Settings)
         @test same(s, Settings(2.5, "fast", Int32(7), [1.0 2.0], Limits(1.0, 10.0)))
-        @test Base.return_types(matread, (typeof(f), String, Type{Settings})) == [Settings]
+        # Asked through a caller: on Julia 1.14 `return_types` on a generated method itself is `Any`.
+        readcfg(f) = matread(f, "cfg", Settings)
+        @test Base.return_types(readcfg, (typeof(f),)) == [Settings]
 
         # The macro writes the same typed read.
         v = @matload f cfg::Settings
@@ -165,7 +167,8 @@ end
         n = @invokelatest tostruct(NCfg, sample(2.5))
         @test n.runs[1].ok
         @test n.tags == ["x", "y", "z"]
-        @test only(@invokelatest Base.return_types(tostruct, (Type{NCfg}, typeof(sample(2.5))))) === NCfg
+        @eval convertn(x) = tostruct(NCfg, x)
+        @test only(@invokelatest Base.return_types(convertn, (typeof(sample(2.5)),))) === NCfg
     end
 end
 
@@ -198,7 +201,8 @@ end
         @test run.label == "today"
         @test run.count == 9
         @test run.cfg.limits.hi == 70.0
-        @test only(@invokelatest Base.return_types(matread, (String, Type{TRun}))) === TRun
+        @eval readrun(p) = matread(p, TRun)
+        @test only(@invokelatest Base.return_types(readrun, (String,))) === TRun
 
         @test_throws "has no variable \"nope\"" @eval @matstructs X $template "nope"
     end
