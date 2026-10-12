@@ -43,8 +43,11 @@ export default defineConfig({
     ['script', {src: `${baseTemp.base}siteinfo.js`}],
     // The theme sets the logo's height from this variable and takes its width from the
     // element. Setting only one of the two scales the image along one axis and squashes it,
-    // so the variable has to agree with the width given below.
-    ['style', {}, ':root { --vp-nav-logo-height: 48px; }']
+    // so the variable has to agree with the width given below. The bar is raised from 64px
+    // with it, since the logo is centred in a box exactly as tall as the bar.
+    ['style', {}, ':root { --vp-nav-logo-height: 72px; --vp-nav-height: 88px; } ' +
+      // The sidebar's curtain hard-codes the default 64px bar, which hides its first entry.
+      '@media (min-width: 960px) { .VPSidebar .curtain { top: calc(var(--vp-nav-height) * -1); } }']
   ],
   
   markdown: {
@@ -89,8 +92,8 @@ export default defineConfig({
   themeConfig: {
     outline: 'deep',
     // Written out rather than left as the placeholder DocumenterVitepress fills in, because
-    // the size it substitutes is fixed at 24 and this logo reads better at twice that.
-    logo: { src: '/logo.png', width: 48, height: 48 },
+    // the size it substitutes is fixed at 24 and this logo reads better at three times that.
+    logo: { src: '/logo.png', width: 72, height: 72 },
     search: {
       provider: 'local',
       options: {
