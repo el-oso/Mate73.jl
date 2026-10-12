@@ -39,7 +39,7 @@ already covers them in the Julia ecosystem. This package does not repeat that wo
 
 Inside version 7.3 it reads numbers, true and false values, text, complex numbers and empty
 arrays. It reads cell arrays, structs and objects. It writes numbers, true and false values,
-text, structs and cell arrays. [The format](format.md) has the full list, and the list of what
+text, structs and cell arrays, and it writes back a whole `Dict` that it or MAT.jl read. [The format](format.md) has the full list, and the list of what
 it cannot do.
 
 ## Two ways to read
@@ -234,6 +234,11 @@ You give `matwrite` a name and a value for each variable:
 | a `String` | text |
 | a `NamedTuple` | a struct, one field per name |
 | a `Tuple` | a cell array of one row |
+| a `Dict` | a struct, one field per key |
+| any other array, such as `Array{Any}` | a cell array of the same shape |
+
+The last 2 rows are what `matread(path)` and MAT.jl give back. They cannot be used inside a
+small compiled program, because the type of each value is found only while it runs.
 
 ### Example 1: one flat file
 
@@ -330,12 +335,27 @@ matread(f, items[1], Matrix{Float64})   # [1.0 2.0]
 matread(f, items[2], String)            # "second"
 ```
 
+### Example 5: write back what you read
+
+A whole file, read by this package or by MAT.jl, writes back as it is:
+
+```julia
+matwrite("copy.mat", matread("original.mat"))
+matwrite("copy.mat", MAT.matread("original.mat"))
+```
+
+With MAT.jl loaded, its own types are written in a simpler form. A struct array becomes a cell
+array of structs, a table becomes a struct with one field per column, and an object becomes a
+struct of its properties. [The format](format.md#Writing-back-what-you-read) has the full list.
+
 ### What you cannot write
 
-- A cell array with no items. A cell of one row needs at least one item, so an empty tuple
-  stops with an error.
-- Complex numbers, sparse arrays, `datetime`, `string` and objects. This package reads all of
-  these. It writes none of them yet.
+- An empty tuple. A cell of one row needs at least one item, so it stops with an error. An
+  empty `Array{Any}` writes an empty cell.
+- Complex numbers, `datetime` and `string`. This package reads all of these. It writes none
+  of them yet.
+- Struct arrays, tables and objects as themselves. They are written in the simpler form above.
+- Sparse arrays as sparse. A sparse array is written as a full one.
 - Compression. Every array is written in one block, so the file is larger than one MATLAB
   writes.
 

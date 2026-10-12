@@ -19,17 +19,17 @@ back.
 | `logical` | `Array{Bool,N}` | yes |
 | `char`, one row | `String` | yes |
 | empty arrays | the shape stays, so a `0x3` stays `0x3` | yes |
-| `cell` | `Array{MatRef,N}`, one mark for each item | yes, from a `Tuple` |
-| `struct` | fields by path; `matkeys` gives the names | yes, from a `NamedTuple` |
+| `cell` | `Array{MatRef,N}`, one mark for each item | yes, from a `Tuple` or an `Array{Any,N}` |
+| `struct` | fields by path; `matkeys` gives the names | yes, from a `NamedTuple` or a `Dict` |
 | complex numbers | `Array{Complex{T},N}` | no |
-| `char`, any shape | `Array{Char,N}`, as 16-bit units | no |
-| struct arrays | each field is an `Array{MatRef,N}` | no |
+| `char`, any shape | `Array{Char,N}`, as 16-bit units | yes |
+| struct arrays | each field is an `Array{MatRef,N}` | as a cell array of structs |
 | `datetime` | `Array{DateTime,N}` | no |
 | `string`, `categorical` | `Array{String,N}` | no |
-| `table` | a `NamedTuple` of columns | no |
-| objects of a class you wrote | properties by path | no |
-| function handles | the values MATLAB stored, by path | no |
-| objects of a class written before 2008 | properties by path | no |
+| `table` | a `NamedTuple` of columns | as a struct of columns |
+| objects of a class you wrote | properties by path | as a struct of properties |
+| function handles | the values MATLAB stored, by path | as a struct of the stored values |
+| objects of a class written before 2008 | properties by path | as a struct of properties |
 
 ## Boxes with mixed contents
 
@@ -272,8 +272,9 @@ matwrite(
 )
 ```
 
-Every type is settled while your program is compiled, so writing works inside a small compiled
-program, as reading does.
+Every type above is settled while your program is compiled, so writing those works inside a
+small compiled program, as reading does.
+
 
 A struct is a group holding one member for each field, so a struct inside a struct is a group
 inside a group.
@@ -283,6 +284,36 @@ shelf number. The items themselves are written in a hidden entry named `#refs#`,
 MATLAB puts them too. An item must be linked under some name, or nothing could walk to it.
 
 This package does not compress. Files are therefore larger than the files MATLAB writes.
+
+### Writing back what you read
+
+**A `Dict` becomes a struct. Any other array, such as `Array{Any}`, becomes a cell array of
+the same shape.** These are what `matread(path)` and MAT.jl give back, so a whole file read
+either way can be written again:
+
+```julia
+matwrite("copy.mat", matread("original.mat"))
+matwrite("copy.mat", MAT.matread("original.mat"))
+```
+
+| you give | MATLAB sees |
+|---|---|
+| an `AbstractDict` | a struct, one field per key |
+| any other array, such as `Array{Any}` | a cell array of the same shape |
+| a `Char` or an `Array{Char}` | text, keeping its shape |
+| a range, a view or a `BitArray` | an array of the matching type |
+
+With MAT.jl loaded as well, its own types are written in a simpler form:
+
+| MAT.jl gives | MATLAB sees |
+|---|---|
+| `MatlabStructArray` | a cell array of structs, of the same shape |
+| `MatlabTable` | a struct with one field per column |
+| `MatlabClassObject`, `MatlabOpaque`, `FunctionHandle` | a struct of their properties; the class is lost |
+
+The type of each value inside a `Dict` or an `Array{Any}` is found only while the program
+runs, so these cannot be used inside a small compiled program. Use a `NamedTuple` and a
+`Tuple` there.
 
 ## Where the package stops
 
@@ -314,7 +345,7 @@ You will see these. They do not pass silently.
 | a sparse array | error |
 | a `categorical` element MATLAB shows as `<undefined>` | error; there is no text to give |
 | a property MATLAB keeps in the table rather than beside it | error; only a property with an address can be followed |
-| a cell array with no items, on write | error |
+| an empty `Tuple`, on write | error; an empty `Array{Any}` writes an empty cell |
 | text above code point 65535, as `Array{Char,N}` | 2 units, not 1; the `String` method joins them |
 
 The last row is the one to watch. MATLAB keeps text as 16-bit units and `Array{Char,N}` gives
@@ -326,8 +357,10 @@ MATLAB stored.
 
 Nothing here is a decision against the feature. It is work not done.
 
-- **Writing** complex numbers, sparse arrays, `datetime`, `string`, `categorical`, `table` or
-  objects. All of these read.
+- **Writing** complex numbers, `datetime`, `string` or `categorical`. All of these read.
+- **Writing struct arrays, tables and objects as themselves.** They are written in the simpler
+  form above, so MATLAB reads a cell array or a struct in their place.
+- **Writing sparse arrays as sparse.** A sparse array is written as a full one.
 - **Compression on write.** Every array goes in one block, so a file is larger than the one
   MATLAB writes for the same data.
 - **The row names of a table.** Only the columns are read.

@@ -222,3 +222,21 @@ end
     h = matopen(fixture("struct_table_datetime.mat"))
     @test matread(h, "s/testDatetime", Matrix{Mate73.DateTime}) isa Matrix
 end
+
+@testitem "the write-back examples" setup = [Fixtures] begin
+    import MAT
+
+    mktempdir() do dir
+        copy = joinpath(dir, "copy.mat")
+        original = fixture("struct.mat")
+
+        matwrite(copy, matread(original))
+        @test matread(copy) == matread(original)
+
+        # MAT.jl's struct array comes back as a cell array of structs with the same contents.
+        theirs = MAT.matread(original)
+        matwrite(copy, theirs)
+        @test MAT.matread(copy)["s"] == theirs["s"]
+        @test MAT.matread(copy)["s2"] == Array(theirs["s2"])
+    end
+end
