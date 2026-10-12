@@ -343,21 +343,44 @@ end
 addvalue!(w::MatWriter, parent::Int, name::String, x::Writable) =
     addvalue!(w, parent, name, fill(x, 1, 1))
 
-"MATLAB holds char data as UTF-16 code units in a 1xN array."
-function addvalue!(w::MatWriter, parent::Int, name::String, s::AbstractString)
-    units = transcode(UInt16, String(s))
-    isempty(units) && return addnode!(w, parent, emptynode(name, "char", [0, 0]))
+"MATLAB holds char data as UTF-16 code units. `dims` is in HDF5 order."
+function addtext!(w::MatWriter, parent::Int, name::String, units::Vector{UInt16}, dims::Vector{Int})
     attrs = Vector{UInt8}[
         matlab_class_attribute("char"), matlab_int_decode_attribute(2),
     ]
     return addnode!(
         w, parent,
         datasetnode(
-            name, datatype_message(UInt16), dataspace_message([length(units), 1]),
+            name, datatype_message(UInt16), dataspace_message(dims),
             attrs, collect(reinterpret(UInt8, units)),
         ),
     )
 end
+
+"Text becomes a 1xN char array."
+function addvalue!(w::MatWriter, parent::Int, name::String, s::AbstractString)
+    units = transcode(UInt16, String(s))
+    isempty(units) && return addnode!(w, parent, emptynode(name, "char", [0, 0]))
+    return addtext!(w, parent, name, units, [length(units), 1])
+end
+
+# MAT.jl reads text of one character as a `Char`.
+addvalue!(w::MatWriter, parent::Int, name::String, c::AbstractChar) =
+    addvalue!(w, parent, name, string(c))
+
+"""
+An array of characters keeps its shape, which is how [`matread`](@ref) gives back text of
+more than one row. Each character must fit one UTF-16 code unit, as it does in MATLAB.
+"""
+function addvalue!(w::MatWriter, parent::Int, name::String, a::AbstractArray{<:AbstractChar})
+    isempty(a) && return addnode!(w, parent, emptynode(name, "char", collect(size(a))))
+    return addtext!(w, parent, name, UInt16[UInt16(c) for c in vec(a)], hdf5dims(a))
+end
+
+# MAT.jl reads an empty cell, `{}`, as an array of element type `Union{}`. That type is a
+# subtype of every element type above, so it is caught here before any of them.
+addvalue!(w::MatWriter, parent::Int, name::String, a::Array{Union{}}) =
+    addnode!(w, parent, emptynode(name, "cell", collect(size(a))))
 
 # ── structs and cells ───────────────────────────────────────────────────────
 
@@ -427,13 +450,56 @@ The items may have different types, which is what a cell array is for. Each one 
 function addvalue!(w::MatWriter, parent::Int, name::String, t::Tuple)
     n = length(t)
     n > 0 || error("cannot write an empty cell array under \"", name, "\"")
+    i = addcell!(w, parent, name, [n, 1])
+    additems!(w, i, refsgroup!(w), t)
+    return i
+end
+
+"Add a cell node of HDF5 dimensions `dims`. The caller adds one child per item, in order."
+function addcell!(w::MatWriter, parent::Int, name::String, dims::Vector{Int})
     node = MatNode(
-        name, NODE_CELL, reference_datatype_message(), dataspace_message([n, 1]),
-        Vector{UInt8}[matlab_class_attribute("cell")], zeros(UInt8, 8n), Int[],
+        name, NODE_CELL, reference_datatype_message(), dataspace_message(dims),
+        Vector{UInt8}[matlab_class_attribute("cell")], zeros(UInt8, 8 * prod(dims)), Int[],
     )
-    i = addnode!(w, parent, node)
+    return addnode!(w, parent, node)
+end
+
+# A range, a view or a `BitArray` of numbers is still a numeric array, not a cell.
+addvalue!(w::MatWriter, parent::Int, name::String, a::AbstractArray{<:Writable}) =
+    addvalue!(w, parent, name, collect(a))
+
+"""
+Any other array becomes a MATLAB cell array of the same shape, which is what MAT.jl and
+[`matread`](@ref) give back for one: an `Array{Any}`.
+
+Unlike a tuple, the type of each item is found only while the program runs, so this method
+cannot be used inside a small compiled program.
+"""
+function addvalue!(w::MatWriter, parent::Int, name::String, a::AbstractArray)
+    isempty(a) && return addnode!(w, parent, emptynode(name, "cell", collect(size(a))))
+    i = addcell!(w, parent, name, hdf5dims(a))
     refs = refsgroup!(w)
-    additems!(w, i, refs, t)
+    # Column-major order is MATLAB's order, so the items go in as Julia iterates them.
+    for x in a
+        push!(w.nodes[i].children, addvalue!(w, refs, string(length(w.nodes)), x))
+    end
+    return i
+end
+
+"""
+A dictionary becomes a MATLAB struct, one field per key. This is what MAT.jl and
+[`matread`](@ref) give back for a struct, so what they read can be written again.
+
+The type of each value is found only while the program runs, so this method cannot be used
+inside a small compiled program; a `NamedTuple` can.
+"""
+function addvalue!(w::MatWriter, parent::Int, name::String, d::AbstractDict)
+    # MATLAB writes a struct with no fields as an empty array holding its size, 1x1.
+    isempty(d) && return addnode!(w, parent, emptynode(name, "struct", [1, 1]))
+    i = addnode!(w, parent, groupnode(name, Vector{UInt8}[matlab_class_attribute("struct")]))
+    for (k, v) in d
+        addvalue!(w, i, String(k), v)
+    end
     return i
 end
 
@@ -449,8 +515,12 @@ Add `value` under `name`.
 | a `String` | text |
 | a `NamedTuple` | a struct, one field per name |
 | a `Tuple` | a cell array of one row |
+| an `AbstractDict` | a struct, one field per key |
+| any other array, such as `Array{Any}` | a cell array of the same shape |
 
-A named tuple or a tuple may hold any of these in turn, so structs and cells nest.
+Each of these may hold any of the others in turn, so structs and cells nest. The last two
+are what MAT.jl and [`matread`](@ref) return, and they cannot be used inside a small
+compiled program.
 """
 function Base.push!(w::MatWriter, name::String, value)
     addvalue!(w, ROOT, name, value)
@@ -557,6 +627,29 @@ function matwrite(path::String, w::MatWriter)
         close(io)
     end
     return path
+end
+
+"""
+    matwrite(path, d::AbstractDict)
+
+Write each entry of `d` as a variable. This writes back what `matread(path)` or
+`MAT.matread(path)` returned:
+
+```julia
+matwrite("copy.mat", MAT.matread("original.mat"))
+```
+
+Loading MAT.jl as well lets this write its struct arrays and tables. A struct array is
+written as a cell array of structs, and a table as a struct of columns.
+
+This cannot be used inside a small compiled program.
+"""
+function matwrite(path::String, d::AbstractDict)
+    w = MatWriter()
+    for (k, v) in d
+        push!(w, String(k), v)
+    end
+    return matwrite(path, w)
 end
 
 """

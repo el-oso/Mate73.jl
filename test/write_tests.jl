@@ -157,3 +157,77 @@ end
     using Mate73: matwrite, MatWriter
     @test_throws "empty cell array" push!(MatWriter(), "c", ())
 end
+
+@testitem "a Dict writes a struct, and a whole Dict writes a file" setup = [Fixtures] begin
+    using Mate73: matwrite
+    import MAT
+
+    mktempdir() do dir
+        path = joinpath(dir, "dict.mat")
+        d = Dict{String, Any}(
+            "s" => Dict("a" => 1.0, "inner" => Dict(:n => Int32(7)), "none" => Dict{String, Any}()),
+            "cell" => reshape(Any[1.0, [3.0 4.0], "two", Dict("x" => true)], 2, 2),
+            "emptycell" => Matrix{Union{}}(undef, 0, 0),
+            "chars" => ['a' 'b'; 'c' 'd'],
+            "c" => 'x',
+            "r" => 1:3,
+            "bits" => trues(2, 2),
+        )
+        matwrite(path, d)
+
+        # libhdf5 and MAT.jl are the independent check.
+        theirs = MAT.matread(path)
+        @test theirs["s"]["a"] == 1.0
+        @test theirs["s"]["inner"]["n"] == 7
+        @test theirs["s"]["none"] == Dict{String, Any}()
+        @test theirs["cell"] == d["cell"]
+        @test isempty(theirs["emptycell"])
+        @test theirs["chars"] == ["ab", "cd"]   # MAT.jl gives each row of text as a String
+        @test theirs["c"] == 'x'
+        @test theirs["r"] == [1, 2, 3]
+        @test theirs["bits"] == trues(2, 2)
+
+        ours = matread(path)
+        @test ours["s"]["none"] == Dict{String, Any}()
+        @test ours["chars"] == d["chars"]
+        @test ours["cell"][2, 2] == Dict("x" => fill(true, 1, 1))
+    end
+end
+
+@testitem "what MAT.jl reads, Mate73 writes back" setup = [Fixtures] begin
+    using Mate73: matwrite
+    import MAT
+
+    mktempdir() do dir
+        # Every variable in these fixtures comes back equal through MAT.jl. Complex values
+        # and datetimes are left out: this package does not write them.
+        for file in (
+                "array.mat", "cell.mat", "logical.mat", "simple.mat", "string.mat", "struct.mat",
+                "old_class.mat", "user_defined_classdefs.mat", "dynamicprops.mat",
+                "empty_cell_struct.mat", "empty_cells.mat", "function_handles.mat",
+            )
+            original = MAT.matread(fixture(file))
+            path = joinpath(dir, file)
+            matwrite(path, original)
+            back = MAT.matread(path)
+            for (k, v) in original
+                # A struct array is written as a cell of structs, with the same contents.
+                expected = v isa MAT.MatlabStructArray ? Array(v) : v
+                @test back[k] == expected
+            end
+        end
+    end
+end
+
+@testitem "a MAT.jl table writes as a struct of columns" setup = [Fixtures] begin
+    using Mate73: matwrite
+    import MAT
+
+    mktempdir() do dir
+        path = joinpath(dir, "table.mat")
+        matwrite(path, Dict("t" => MAT.MatlabTable([:a, :b], [[1.0, 2.0], [3.0, 4.0]])))
+        t = MAT.matread(path)["t"]
+        @test t["a"] == [1.0, 2.0]
+        @test t["b"] == [3.0, 4.0]
+    end
+end

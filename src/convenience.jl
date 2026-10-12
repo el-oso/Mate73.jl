@@ -158,6 +158,8 @@ function matread(f::MatFile, key)
     # element type come from elsewhere: the stored list, and the MATLAB type name.
     if oi.mempty
         dims = matsize(f.h5, oi)
+        # A struct with no fields is stored as an empty 1x1, which has no elements to read.
+        (classof(oi.mclass) == MAT_STRUCT && prod(dims) == 1) && return Dict{String, Any}()
         return readrank(f, key, classelementtype(classof(oi.mclass)), length(dims))
     end
 
