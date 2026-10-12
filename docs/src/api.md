@@ -24,7 +24,6 @@ matread(::Mate73.MatFile, ::Mate73.MatRef, ::String, ::Type)
 matread(::Mate73.MatFile, ::Any, ::Type{<:Number})
 matread(::Mate73.MatFile, ::Any, ::Type)
 matread(::Mate73.MatFile, ::Any, ::Type{T}) where {T <: Tuple}
-@matstruct
 @matstructs
 matstructs
 tostruct

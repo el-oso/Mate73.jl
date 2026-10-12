@@ -119,68 +119,6 @@ end
     end
 end
 
-@testitem "@matstruct renames, defaults, optional fields and paths" setup = [Records] begin
-    @matstruct struct Lim
-        lo = "lower"::Float64
-        hi = "upper"::Float64
-    end
-    @matstruct struct Cfg
-        gain::Float64
-        mode::String = "fast"
-        lims::Vector{Lim}
-        weights::Union{Nothing, Matrix{Float64}}
-        blank::Union{Nothing, Matrix{Float64}}
-        offset = "calib/offset"::Float64
-        scale = "calib/scale"::Float64 = 1.0
-    end
-
-    mktempdir() do dir
-        path = joinpath(dir, "cfg.mat")
-        matwrite(
-            path,
-            "cfg" => (
-                gain = 2.5, blank = zeros(0, 0), calib = (offset = 0.5,),
-                lims = ((lower = 1.0, upper = 2.0), (lower = 3.0, upper = 4.0)),
-            ),
-        )
-        f = matopen(path)
-        c = matread(f, "cfg", Cfg)
-        @test c.gain == 2.5
-        @test c.mode == "fast"              # absent: the default
-        @test same(c.lims, [Lim(1.0, 2.0), Lim(3.0, 4.0)])
-        @test isnothing(c.weights)          # absent and optional
-        @test isnothing(c.blank)            # empty and optional
-        @test c.offset == 0.5               # a path into a nested struct
-        @test c.scale == 1.0                # absent along a path: the default
-        @test Base.return_types(matread, (typeof(f), String, Type{Cfg})) == [Cfg]
-        @test (@matload f cfg::Cfg).cfg.lims[2].hi == 4.0
-
-        @test_throws "no variable or field named \"lower\"" matread(f, "cfg/calib", Lim)
-    end
-end
-
-@testitem "@matstruct reads a MATLAB struct array and objects" setup = [Records] begin
-    @matstruct struct OnlyA
-        a::Matrix{Float64}
-    end
-    @matstruct struct Inner
-        value = "a"::Float64
-        label = "b"::String
-    end
-    @test same(
-        matread(matopen(fixture("struct.mat")), "s2", Vector{OnlyA}),
-        [OnlyA(fill(1.0, 1, 1)), OnlyA(fill(2.0, 1, 1))],
-    )
-    inner = matread(matopen(fixture("user_defined_classdefs.mat")), "obj_with_nested_props/c/InnerProp", Inner)
-    @test inner.value == 2.0
-    @test inner.label == "Obj2"
-end
-
-@testitem "@matstruct refuses a line it cannot read" begin
-    using Mate73
-    @test_throws "cannot read the line" Mate73.matfield(:(x + 1))
-end
-
 @testsnippet Template begin
     using Mate73
     import MAT
