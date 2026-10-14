@@ -1,6 +1,6 @@
 name = "Mate73"
 uuid = "ac3d6271-672e-4686-b0e2-ced9bd5a6803"
-version = "0.1.1"
+version = "0.1.2"
 authors = ["el-oso <15278831+el-oso@users.noreply.github.com>"]
 
 [deps]
