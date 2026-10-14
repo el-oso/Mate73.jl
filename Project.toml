@@ -8,15 +8,18 @@ ChunkCodecLibZlib = "4c0bbee4-addc-4d73-81a0-b6caacae83c8"
 Dates = "ade2ca70-3891-5945-98fb-dc099432e06a"
 Mmap = "a63ad114-7e13-5084-954f-fe012c677804"
 
-[compat]
-ChunkCodecLibZlib = "1"
-Dates = "1"
-MAT = "0.12"
-Mmap = "1"
-julia = "1.12"
-
 [weakdeps]
+JLD2 = "033835bb-8acc-5ee8-8aae-3f567f8a3819"
 MAT = "23992714-dd62-5051-b70f-ba57cb901cac"
 
 [extensions]
+Mate73JLD2Ext = "JLD2"
 Mate73MATExt = "MAT"
+
+[compat]
+ChunkCodecLibZlib = "1"
+Dates = "1"
+JLD2 = "0.6"
+MAT = "0.12"
+Mmap = "1"
+julia = "1.12"

@@ -381,6 +381,28 @@ The type of each value inside a `Dict` or an `Array{Any}` is found only while th
 runs, so these cannot be used inside a small compiled program. Use a `NamedTuple` and a
 `Tuple` there.
 
+### From a JLD2 file
+
+**With JLD2.jl loaded as well, an open JLD2 file is written as a MATLAB file, one variable for
+each of its variables.**
+
+```julia
+using JLD2
+jldopen(f -> matwrite("data.mat", f), "data.jld2")
+```
+
+| in the JLD2 file | MATLAB sees |
+|---|---|
+| a struct, whether or not its type is defined where you load it | a struct, one field per field |
+| a group | a struct, one field per member |
+| a `Dict` with `String` or `Symbol` keys | a struct, one field per key |
+| a `Symbol` | text |
+| anything `matwrite` takes | the same as `matwrite` |
+
+The Julia type of a struct is lost; only its fields are written. A value with no MATLAB form,
+such as `nothing` or a complex number, stops with an error that says where it is, as in
+`cannot write cfg.z(1): ComplexF64 has no MATLAB form`, rather than being left out.
+
 ## Where the package stops
 
 **Read this part first: two limits give you an answer that is not the one you asked for.**
