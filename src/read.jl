@@ -576,6 +576,9 @@ function readvalues(f::MatFile, oi::ObjInfo, name::String, ::Type{Array{T, N}}) 
         "variable \"", name, "\" stores ", oi.dt_size, "-byte elements, not ", sizeof(T),
     )
     out = Array{T, N}(undef, ntuple(k -> matdim(oi.dims, k, oi.nd), Val(N)))
+    # Nothing to read, and a writer may give such a dataset no storage at all, as MAT.jl does
+    # for an empty cell.
+    isempty(out) && return out
 
     if oi.layout == LAYOUT_CHUNKED
         oi.chunk_btree >= 0 || error("variable \"", name, "\" is chunked but has no chunk index")

@@ -84,7 +84,7 @@ match. You state every type, so this works inside a small compiled program.
     n = fieldcount(T)
     reads = Expr[:(matread(f, items[$i], $(fieldtype(T, i)))) for i in 1:n]
     return quote
-        items = matread(f, key, Matrix{MatRef})
+        items = readmarks(f, key, Vector{MatRef})
         length(items) == $n || error(
             "cell \"", keyname(key), "\" has ", length(items), " items, not ", $n,
         )
@@ -94,10 +94,14 @@ end
 
 """
 The marks of a cell array or of one field of a struct array, shaped as asked. MATLAB has no 1-D
-arrays, so a vector is held as a 1xN or an Nx1 and is read through a matrix.
+arrays, so a vector is held as a 1xN or an Nx1 and is read through a matrix. A writer that
+keeps Julia's shape, as this package does for an empty `Vector`, stores rank 1, read as it is.
 """
 readmarks(f::MatFile, key, ::Type{Array{MatRef, N}}) where {N} = matread(f, key, Array{MatRef, N})
-readmarks(f::MatFile, key, ::Type{Vector{MatRef}}) = vec(matread(f, key, Matrix{MatRef}))
+function readmarks(f::MatFile, key, ::Type{Vector{MatRef}})
+    isone(length(matsize(f, key))) && return matread(f, key, Vector{MatRef})
+    return vec(matread(f, key, Matrix{MatRef}))
+end
 
 """
 An array of structs of your own. MATLAB keeps one either as a cell array, one struct per item,

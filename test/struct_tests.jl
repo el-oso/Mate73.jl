@@ -207,3 +207,23 @@ end
         @test_throws "has no variable \"nope\"" @eval @matstructs X $template "nope"
     end
 end
+
+@testitem "empty cells read back, from either writer, as a Dict or typed" setup = [Template] begin
+    mktempdir() do dir
+        cfg = Dict{String, Any}("gain" => 2.5, "notes" => Any[], "tags" => String[], "items" => Any[Any[], "x"])
+        for (w, write) in (
+                ("ours", p -> matwrite(p, Dict{String, Any}("cfg" => cfg))),
+                ("MAT", p -> MAT.matwrite(p, Dict{String, Any}("cfg" => cfg); compress = false)),
+            )
+            p = joinpath(dir, w * ".mat")
+            write(p)
+            # This package keeps an empty Vector at rank 1; MAT.jl gives an empty cell no storage.
+            d = matread(p)["cfg"]
+            @test d["notes"] == Any[] && d["notes"] isa Vector{Any}
+            @test d["items"][2] == "x"
+            f = matopen(p)
+            @test matread(f, "cfg/items", Tuple{Vector{Any}, String}) == (Any[], "x")
+            @test matread(f, "cfg/notes", Vector{Any}) == Any[]
+        end
+    end
+end

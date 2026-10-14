@@ -160,6 +160,9 @@ function matread(f::MatFile, key)
         dims = matsize(f.h5, oi)
         # A struct with no fields is stored as an empty 1x1, which has no elements to read.
         (classof(oi.mclass) == MAT_STRUCT && prod(dims) == 1) && return Dict{String, Any}()
+        # An empty cell holds no items, so it has no element type to read; it is an `Array{Any}`
+        # as any other cell is.
+        classof(oi.mclass) == MAT_CELL && return Array{Any}(undef, dims...)
         return readrank(f, key, classelementtype(classof(oi.mclass)), length(dims))
     end
 
