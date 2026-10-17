@@ -13,10 +13,12 @@ jobs:
     if: github.event_name == 'workflow_dispatch' || github.actor == 'JuliaTagBot'
     # ubuntu-slim doesn't support containers, and thus won't work
     runs-on: ubuntu-latest
+    permissions:
+      contents: write        # to push the tag
     steps:
+      # A tag pushed with GITHUB_TOKEN starts no further workflow, so CI.yml does not build
+      # the documentation for it even though it listens on tags. The documentation badge
+      # points at `dev`, which every push to master rebuilds, so nothing waits on a tag.
       - uses: JuliaRegistries/TagBot@cded32665b34ca0496d3ac10a67d08ddfc726963 # v1.25.11
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          # The deploy key lets a tag trigger the documentation build. CI.yml already
-          # uses this secret for the same key.
-          ssh: ${{ secrets.DOCUMENTER_KEY }}
