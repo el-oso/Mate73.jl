@@ -149,6 +149,7 @@ all of them fully typed.
 @matstructs Cfg "template.mat" "cfg"     # the types of one variable
 @matstructs Cfg "template.mat" unwrap    # the only variable, whatever it is called
 @matstructs Run "template.mat"           # one field for every variable in the file
+@matstructs Run ["a.mat", "b.mat"] "run" # what several templates agree on
 
 cfg = matread(matopen("today.mat"), "cfg", Cfg)
 run = matread("today.mat", Run)
@@ -179,6 +180,32 @@ at run time:
 f = matopen("today.mat")
 cfg = matread(f, only(keys(f)), Cfg)
 ```
+
+
+### When one template is not enough
+
+One template is one sample. A field that is empty in it cannot be described: a struct with no
+fields and an empty cell hold nothing to take a type from. Such a field is **left out** of the
+type, with a warning that names it, rather than guessed at. An empty array of numbers or text
+is described, since it carries its own element type.
+
+Give a list of templates to describe more. A field is then named only if **every** template
+describes it, which keeps the type readable from every file of that shape.
+
+- A field that one template lacks, or holds empty, is left out and named in the warning.
+- A field two templates describe differently, a scalar in one and a matrix in the other, stops
+  with an error. One field type cannot match both.
+- Merging reaches into structs, but not into the items of a cell array.
+
+Read a field the type leaves out where it is there:
+
+```julia
+f = matopen("today.mat")
+run = matread(f, "run", Run)
+opt = isempty(matkeys(f, "run/opt")) ? nothing : matread(f, "run/opt", Opt)
+```
+
+If a template is not representative, leaving it out of the list is the other answer.
 
 To see or edit the definitions instead, `print(matstructs(matread("template.mat")["cfg"], :Cfg))`
 writes the same code as text; `matstructs` also takes a `Dict` from MAT.jl or a nested

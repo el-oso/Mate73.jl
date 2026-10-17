@@ -83,3 +83,45 @@ catch e
     print(sprint(showerror, e))
 end
 ```
+
+## A field that is not in every file
+
+Run 4 stopped before any check ran, so its `checks` is an empty cell. One file cannot say what
+an empty cell holds, so a type built from run 1 and run 4 leaves `checks` out. The macro warns
+while the code is compiled, naming every field it left out.
+
+```@example runs
+matwrite(
+    "runs/run_004.mat",
+    "label" => "run 4",
+    "cfg" => (gain = 3.0, mode = "fast", limits = (lo = 0.0, hi = 10.0)),
+    "trace" => [1.0 2.0],
+    "checks" => Matrix{Any}(undef, 0, 0),
+)
+
+@matstructs Both ["runs/run_001.mat", "runs/run_004.mat"]
+fieldnames(Both)
+```
+
+Every file reads into `Both` now, the one with no checks among them. Read the checks where
+there are some, with `RunChecks`, which the first template already defined:
+
+```@example runs
+function summarize2(path::String)
+    f = matopen(path)
+    r = matread(f, Both)
+    checks = matread(f, "checks", Matrix{RunChecks})
+    return (r.label, maximum(r.trace), count(c -> c.ok, checks))
+end
+
+[summarize2(joinpath("runs", f)) for f in readdir("runs")]
+```
+
+An empty cell reads as an empty `Matrix{RunChecks}`, so `count` gives 0 and nothing has to
+test for it. A field that is *missing* from a file rather than empty needs the test, since
+there is nothing to read:
+
+```@example runs
+f = matopen("runs/run_004.mat")
+"notes" in matkeys(f, "") ? matread(f, "notes", String) : "no notes"
+```

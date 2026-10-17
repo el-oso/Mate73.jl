@@ -233,6 +233,69 @@ end
     end
 end
 
+@testitem "a field no template describes is left out, and said so" setup = [Template] begin
+    mktempdir() do dir
+        path = joinpath(dir, "t.mat")
+        matwrite(
+            path,
+            "cfg" => Dict{String, Any}(
+                "gain" => 2.5,
+                "opt" => Dict{String, Any}(),            # a struct with no fields
+                "notes" => Matrix{Any}(undef, 0, 0),     # an empty cell
+                "blank" => Float64[],                    # an empty array of numbers
+            ),
+        )
+        src = matstructs(matread(path)["cfg"], :OCfg)
+        # Nothing to take a type from, so no field is written and the reason stands in its place.
+        @test !occursin("opt::", src)
+        @test !occursin("notes::", src)
+        @test occursin("# opt: a struct with no fields in a template", src)
+        @test occursin("# notes: an empty cell in a template", src)
+        # An empty array of numbers does carry its own type, so it is described.
+        @test occursin("blank::", src)
+        @test occursin("gain::Float64", src)
+
+        @test_logs (:warn, r"does not name notes, opt") @eval @matstructs OCfg2 $path "cfg"
+        @test @eval(fieldnames(OCfg2)) == (:blank, :gain)
+    end
+end
+
+@testitem "several templates are merged into one set of types" setup = [Template] begin
+    mktempdir() do dir
+        # The same layout in both files, but each is empty where the other is filled.
+        a = joinpath(dir, "a.mat")
+        b = joinpath(dir, "b.mat")
+        matwrite(
+            a,
+            "run" => Dict{String, Any}(
+                "gain" => 2.5, "label" => "a", "opt" => Dict{String, Any}(), "only_a" => 1.0,
+            ),
+        )
+        matwrite(b, "run" => (gain = 3.0, label = "b", opt = (lo = 1.0, hi = 2.0)))
+        @test_logs (:warn, r"does not name only_a, opt") @eval @matstructs MRun [$a, $b] "run"
+
+        # `only_a` is in one file and `opt` is empty in one, so neither is named. Both files
+        # then read into the type, which is the point of giving more than one template.
+        @test @eval(fieldnames(MRun)) == (:gain, :label)
+        for (path, gain) in ((a, 2.5), (b, 3.0))
+            f = matopen(path)
+            @test (@invokelatest matread(f, "run", MRun)).gain == gain
+        end
+
+        # One template on its own cannot know that `opt` is ever empty.
+        @eval @matstructs BRun $b "run"
+        @test :opt in @eval(fieldnames(BRun))
+
+        # A field with two different shapes cannot have one type.
+        c = joinpath(dir, "c.mat")
+        matwrite(c, "run" => (gain = [1.0 2.0], label = "c"))
+        @test_throws "disagree about \"gain\"" @eval @matstructs CRun [$a, $c] "run"
+
+        @test_throws "give at least one template" @eval @matstructs NRun [] "run"
+        @test_throws "a list of them" @eval @matstructs XRun 42 "run"
+    end
+end
+
 @testitem "empty cells read back, from either writer, as a Dict or typed" setup = [Template] begin
     mktempdir() do dir
         cfg = Dict{String, Any}("gain" => 2.5, "notes" => Any[], "tags" => String[], "items" => Any[Any[], "x"])
