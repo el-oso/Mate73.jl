@@ -85,7 +85,12 @@ function matopen(path::String)
     return MatFile(h5, names, addrs, McosState[])
 end
 
-Base.keys(f::MatFile) = copy(f.names)
+"""
+The names of the variables in the file. The two names MATLAB keeps for itself, `#refs#` and
+`#subsystem#`, hold the parts of other variables rather than variables of their own, so they
+are left out.
+"""
+Base.keys(f::MatFile) = String[name for name in f.names if !startswith(name, "#")]
 
 """
     matread(path, name, T) -> T
@@ -326,12 +331,13 @@ Give the names inside a group.
 
 - For a struct, these are the field names.
 - For an object, these are the property names. Properties added with `addprop` are included.
-- For an empty `path`, these are the variable names at the top level of the file.
+- For an empty `path`, these are the variable names at the top level of the file, the same as
+  [`keys`](@ref) gives, so the two names MATLAB keeps for itself are left out.
 
 The names come in file order. MATLAB may use a different order for the fields of a struct.
 """
 function matkeys(f::MatFile, key)
-    (key isa String && isempty(key)) && return copy(f.names)
+    (key isa String && isempty(key)) && return keys(f)
     oi = objinfo(f.h5, address(f, key))
     isobjectref(f, oi) && return objectkeys(f, oi)
     return groupentries(f.h5, oi)[1]

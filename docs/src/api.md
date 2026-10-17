@@ -31,6 +31,7 @@ matread(::Mate73.MatFile, ::Type)
 matref
 matclass
 matsize
+keys(::Mate73.MatFile)
 matkeys
 matobjectclass
 matread

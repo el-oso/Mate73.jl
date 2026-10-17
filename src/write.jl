@@ -521,8 +521,14 @@ Add `value` under `name`.
 Each of these may hold any of the others in turn, so structs and cells nest. The last two
 are what MAT.jl and [`matread`](@ref) return, and they cannot be used inside a small
 compiled program.
+
+A name starting with `#` stops with an error. MATLAB keeps those for itself, and a reader
+takes them for the contents of cells or the object tables rather than for a variable.
 """
 function Base.push!(w::MatWriter, name::String, value)
+    startswith(name, "#") && error(
+        "\"", name, "\" cannot be a variable name: MATLAB keeps the names starting with \"#\"",
+    )
     addvalue!(w, ROOT, name, value)
     return w
 end
@@ -661,7 +667,7 @@ each name and value unknown and the calls on them unresolvable.
 """
 @generated function matwrite(path::String, pairs::Pair...)
     adds = [
-        :(addvalue!(w, ROOT, String(pairs[$i].first), pairs[$i].second))
+        :(push!(w, String(pairs[$i].first), pairs[$i].second))
             for i in eachindex(pairs)
     ]
     return quote

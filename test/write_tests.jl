@@ -147,10 +147,21 @@ end
         matwrite(path, "c" => (1.0, "two"))
         f = matopen(path)
         # The items a cell points at must still be reachable by name, or the file holds
-        # objects no reader can walk to.
-        @test "#refs#" in keys(f)
+        # objects no reader can walk to. It is not a variable, so it is not listed as one.
         @test length(matkeys(f, "#refs#")) == 2
+        @test keys(f) == ["c"]
     end
+end
+
+@testitem "a variable may not take one of MATLAB's own names" setup = [Fixtures] begin
+    using Mate73: matwrite, MatWriter
+
+    # Written, such a name would be read as the contents of a cell, not as a variable.
+    @test_throws "MATLAB keeps the names" push!(MatWriter(), "#refs#", 1.0)
+    @test_throws "MATLAB keeps the names" matwrite("unused.mat", "#x" => 1.0)
+    @test_throws "MATLAB keeps the names" matwrite(
+        "unused.mat", "a" => 1.0, "b" => 2.0, "#c" => 3.0,
+    )
 end
 
 @testitem "an empty cell array is refused rather than written wrong" setup = [Fixtures] begin

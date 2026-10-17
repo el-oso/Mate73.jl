@@ -197,7 +197,6 @@ function matread(path::String)
     f = matopen(path)
     out = Dict{String, Any}()
     for name in keys(f)
-        startswith(name, "#") && continue
         out[name] = matread(f, name)
     end
     return out

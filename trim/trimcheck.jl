@@ -109,6 +109,8 @@ using TrimCheck
         Mate73.matread(Mate73.MatFile, Mate73.MatRef, String, Type{Matrix{String}}),
         Mate73.matread(Mate73.MatFile, Mate73.MatRef, String, Type{Array{Char, 2}}),
         Mate73.matopen(String),
+        # The documented way to read a file whose one variable is named per file.
+        Base.keys(Mate73.MatFile),
         Mate73.matread(String, String, Type{Matrix{Float64}}),
         Mate73.matread(String, String, Type{String}),
         Mate73.matsize(Mate73.MatFile, String),

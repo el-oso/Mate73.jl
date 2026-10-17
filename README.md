@@ -147,6 +147,7 @@ all of them fully typed.
 
 ```julia
 @matstructs Cfg "template.mat" "cfg"     # the types of one variable
+@matstructs Cfg "template.mat" unwrap    # the only variable, whatever it is called
 @matstructs Run "template.mat"           # one field for every variable in the file
 
 cfg = matread(matopen("today.mat"), "cfg", Cfg)
@@ -167,6 +168,17 @@ works inside a small compiled program and never holds a `Dict{String,Any}`.
 | a cell of mixed items | a `Tuple` of their types |
 | a 1x1 number | the number, such as `Float64` |
 | anything else | its own type, such as `Matrix{Float64}` |
+
+`unwrap` is for the common case of a file that wraps one struct in a name that changes from
+file to file, such as the name the struct had in MATLAB or the name of the file. Naming that
+variable in the macro would write it into the types, and then no other file would read into
+them. `unwrap` drops that layer, so the types describe the struct itself and the name is given
+at run time:
+
+```julia
+f = matopen("today.mat")
+cfg = matread(f, only(keys(f)), Cfg)
+```
 
 To see or edit the definitions instead, `print(matstructs(matread("template.mat")["cfg"], :Cfg))`
 writes the same code as text; `matstructs` also takes a `Dict` from MAT.jl or a nested
@@ -450,8 +462,11 @@ The package reads the shapes MATLAB writes. HDF5 that MATLAB would never write s
 error: fractal heap groups, superblock versions 1 and 3, data layout version 4, shared header
 messages, and filters other than deflate and shuffle.
 
-`keys(f)` lists 2 names MATLAB keeps for itself, `#refs#` and `#subsystem#`. Skip them if you
-only want your own variables.
+MATLAB keeps 2 names for itself, `#refs#` and `#subsystem#`. They hold the contents of cells
+and the object tables, so they are parts of other variables rather than variables of their
+own, and `keys(f)` leaves them out. Both are still reachable by name if you want to look.
+Writing a variable under a name that starts with `#` stops with an error, since a reader would
+take it for one of these rather than for a variable.
 
 ## Tests
 

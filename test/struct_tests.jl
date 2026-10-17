@@ -208,6 +208,31 @@ end
     end
 end
 
+@testitem "@matstructs unwrap ignores the name of the only variable" setup = [Template] begin
+    mktempdir() do dir
+        # Each file wraps the struct in a name of its own, as `save` does in MATLAB.
+        first = joinpath(dir, "run_2023.mat")
+        second = joinpath(dir, "run_2024.mat")
+        matwrite(first, "run_2023" => sample(1.0))
+        matwrite(second, "run_2024" => sample(7.0))
+        @eval @matstructs WCfg $first unwrap
+
+        # The name of the template's own variable is in neither the type nor its fields.
+        @test !occursin("run_2023", matstructs(matread(first)["run_2023"], :WCfg))
+        for (path, gain) in ((first, 1.0), (second, 7.0))
+            f = matopen(path)
+            cfg = @invokelatest matread(f, only(keys(f)), WCfg)
+            @test cfg.gain == gain
+            @test cfg.limits.hi == 10 * gain
+        end
+
+        two = joinpath(dir, "two.mat")
+        matwrite(two, "a" => sample(1.0), "b" => sample(2.0))
+        @test_throws "nothing to unwrap" @eval @matstructs Y $two unwrap
+        @test_throws "as a string literal, or `unwrap`" @eval @matstructs Z $first other
+    end
+end
+
 @testitem "empty cells read back, from either writer, as a Dict or typed" setup = [Template] begin
     mktempdir() do dir
         cfg = Dict{String, Any}("gain" => 2.5, "notes" => Any[], "tags" => String[], "items" => Any[Any[], "x"])

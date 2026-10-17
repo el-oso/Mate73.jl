@@ -180,6 +180,7 @@ end
 
 """
     @matstructs Name "template.mat" "variable"
+    @matstructs Name "template.mat" unwrap
     @matstructs Name "template.mat"
 
 Define nested struct types from the shape of a template file, while the code is compiled.
@@ -191,11 +192,22 @@ into them with the typed reads, so the program that does the reading never sees 
 
 ```julia
 @matstructs Cfg "template.mat" "cfg"     # one variable
+@matstructs Cfg "template.mat" unwrap    # the only variable, whatever it is called
 @matstructs Run "template.mat"           # every variable, one field each
 
 cfg = matread(matopen("today.mat"), "cfg", Cfg)
 run = matread("today.mat", Run)
 cfg.limits.hi
+```
+
+`unwrap` is for a file that wraps one struct in a name that changes from file to file, such as
+the name the struct had in MATLAB or the name of the file. It drops that layer, so the types
+describe the struct itself and every file of that shape reads into them whatever its variable
+is called. The template must hold exactly one variable. Give the name at run time to read one:
+
+```julia
+f = matopen("today.mat")
+cfg = matread(f, only(keys(f)), Cfg)
 ```
 
 A relative path is taken from the file the macro is in, as `include` does. The template is
@@ -205,15 +217,25 @@ template changes.
 macro matstructs(name, path, var...)
     name isa Symbol || error("@matstructs: the first argument is the name of the type")
     path isa String || error("@matstructs: the template path must be a string literal")
-    length(var) <= 1 && all(v -> v isa String, var) ||
-        error("@matstructs: give at most one variable name, as a string literal")
+    length(var) <= 1 && all(v -> v isa String || v === :unwrap, var) ||
+        error("@matstructs: give at most one variable name, as a string literal, or `unwrap`")
     dir = isnothing(__source__.file) ? pwd() : dirname(String(__source__.file))
     file = abspath(dir, path)
     d = matread(file)
     if !isempty(var)
-        haskey(d, var[1]) || error("@matstructs: \"", file, "\" has no variable \"", var[1], "\"")
-        d = d[var[1]]
-        d isa Record || error("@matstructs: \"", var[1], "\" is not a struct, so it has no fields")
+        key = if var[1] === :unwrap
+            length(d) == 1 || error(
+                "@matstructs: \"", file, "\" has ", length(d),
+                " variables, so there is nothing to unwrap",
+            )
+            only(keys(d))
+        else
+            haskey(d, var[1]) ||
+                error("@matstructs: \"", file, "\" has no variable \"", var[1], "\"")
+            var[1]
+        end
+        d = d[key]
+        d isa Record || error("@matstructs: \"", key, "\" is not a struct, so it has no fields")
     end
     code = Meta.parseall(matstructs(d, name))
     return esc(Expr(:toplevel, :(Base.include_dependency($file)), code.args..., nothing))

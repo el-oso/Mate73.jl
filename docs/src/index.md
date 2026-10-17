@@ -120,6 +120,7 @@ all of them fully typed. [Example: test runs](example.md) walks through it end t
 
 ```julia
 @matstructs Cfg "template.mat" "cfg"     # the types of one variable
+@matstructs Cfg "template.mat" unwrap    # the only variable, whatever it is called
 @matstructs Run "template.mat"           # one field for every variable in the file
 
 cfg = matread(matopen("today.mat"), "cfg", Cfg)
@@ -140,6 +141,17 @@ works inside a small compiled program and never holds a `Dict{String,Any}`.
 | a cell of mixed items | a `Tuple` of their types |
 | a 1x1 number | the number, such as `Float64` |
 | anything else | its own type, such as `Matrix{Float64}` |
+
+`unwrap` is for the common case of a file that wraps one struct in a name that changes from
+file to file, such as the name the struct had in MATLAB or the name of the file. Naming that
+variable in the macro would write it into the types, and then no other file would read into
+them. `unwrap` drops that layer, so the types describe the struct itself and the name is given
+at run time:
+
+```julia
+f = matopen("today.mat")
+cfg = matread(f, only(keys(f)), Cfg)
+```
 
 To see or edit the definitions instead, `print(matstructs(matread("template.mat")["cfg"], :Cfg))`
 writes the same code as text; `matstructs` also takes a `Dict` from MAT.jl or a nested

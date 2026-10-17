@@ -50,8 +50,12 @@ end
 end
 
 @testitem "matkeys lists the top level when given no path" setup = [Fixtures] begin
-    f = matopen(fixture("simple.mat"))
-    @test matkeys(f, "") == keys(f)
+    # This file holds a cell, so MATLAB wrote a `#refs#` beside the two variables. It is not
+    # a variable, so neither listing names it.
+    f = matopen(fixture("struct.mat"))
+    @test sort(matkeys(f, "")) == ["s", "s2"]
+    @test sort(keys(f)) == ["s", "s2"]
+    @test length(matkeys(f, "#refs#")) > 0
 end
 
 @testitem "a missing field says which path failed" setup = [Fixtures] begin

@@ -404,8 +404,11 @@ layout version 4, shared header messages, and filters other than deflate and shu
 Two limits are fixed in the code: 8 dimensions for one array, and 4 filters for one array.
 MATLAB stays far below both.
 
-`keys(f)` lists 2 names MATLAB keeps for itself, `#refs#` and `#subsystem#`, holding the
-contents of cells and the object tables. Skip them if you only want your own variables.
+MATLAB keeps 2 names for itself, `#refs#` and `#subsystem#`. They hold the contents of cells
+and the object tables, so they are parts of other variables rather than variables of their
+own, and `keys(f)` leaves them out. Both are still reachable by name if you want to look.
+Writing a variable under a name that starts with `#` stops with an error, since a reader would
+take it for one of these rather than for a variable.
 
 ## Tests
 
