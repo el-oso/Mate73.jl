@@ -153,7 +153,8 @@ end
 
 """
 Address of the object at `path`. A path may descend through groups with `/`, which is how a
-struct's fields are reached: `matread(f, "s/a", Matrix{Float64})`.
+struct's fields are reached: `matread(f, "s/a", Matrix{Float64})`. A step of digits is an
+index into a cell or struct array: `matread(f, "runs/2/a", Matrix{Float64})`.
 """
 lookup(f::MatFile, path::String) = walkpath(f, -1, f.names, f.addrs, path)
 
@@ -170,15 +171,145 @@ function lookup(f::MatFile, parent::MatRef, path::String)
 end
 
 """
-Follow `path` one name at a time from a starting point.
+One step of a path read as subscripts, or `nothing` when the step is a name.
+
+A step of digits, or of digits separated by commas, indexes a cell or struct array: `"1"`,
+`"2,3"`. No MATLAB field name starts with a digit, so nothing a name could be is taken for an
+index.
+"""
+function indexstep(part::AbstractString)
+    isempty(part) && return nothing
+    isdigit(first(part)) || return nothing
+    subs = Int[]
+    for s in split(part, ',')
+        n = tryparse(Int, s)
+        isnothing(n) && return nothing
+        push!(subs, n)
+    end
+    return subs
+end
+
+"""
+The 1-based position `subs` names in an array of `dims`, in the order MATLAB counts.
+
+One subscript counts straight through, as MATLAB's `a(7)` does. Any other number of them must
+match the number of dimensions.
+"""
+function linearindex(subs::Vector{Int}, dims::Vector{Int}, part::AbstractString, path::String)
+    n = prod(dims)
+    all(>=(1), subs) || error(
+        "index \"", part, "\" in \"", path, "\" counts from 1, so 0 and below name nothing",
+    )
+    shape = join(dims, "x")
+    if isone(length(subs))
+        subs[1] <= n || error(
+            "index \"", part, "\" in \"", path, "\" is past the end of a ", shape,
+            ", which holds ", n, " items",
+        )
+        return subs[1]
+    end
+    length(subs) == length(dims) || error(
+        "index \"", part, "\" in \"", path, "\" gives ", length(subs),
+        " subscripts for a ", shape, "; give one, or give all ", length(dims),
+    )
+    lin = 1
+    stride = 1
+    for k in eachindex(dims)
+        subs[k] <= dims[k] || error(
+            "index \"", part, "\" in \"", path, "\" is outside a ", shape,
+        )
+        lin += (subs[k] - 1) * stride
+        stride *= dims[k]
+    end
+    return lin
+end
+
+"""
+Does this object header describe a list of marks: a cell array, or one field of a struct
+array? Both hold one mark per item, so both are indexed the same way.
+"""
+ismarklist(oi::ObjInfo) = oi.dt_class == DT_REFERENCE && !isgroup(oi)
+
+"""
+Does this object header describe one field of a struct array? Such a field has no MATLAB class
+of its own, which is what tells it apart from a cell array held by a single struct.
+"""
+ismarkfield(oi::ObjInfo) = ismarklist(oi) && isempty(oi.mclass)
+
+"""
+Is the group `oi` describes a struct array rather than a single struct? A struct array keeps
+one list of marks per field, where a single struct keeps each field's value itself.
+"""
+function isstructarraygroup(f::MatFile, oi::ObjInfo)
+    nms, ads = groupentries(f.h5, oi)
+    isempty(nms) && return false
+    return ismarkfield(objinfo(f.h5, ads[1]))
+end
+
+"""
+The address the mark at `subs` holds, out of the list of marks `oi` describes.
+
+The marks are read flat, since the rank of a path's target is known only while the program
+runs and so cannot be a type parameter.
+"""
+function markat(
+        f::MatFile, oi::ObjInfo, name::String, subs::Vector{Int}, part::AbstractString,
+        path::String,
+    )
+    dims = matsize(f.h5, oi)
+    lin = linearindex(subs, dims, part, path)
+    marks = Vector{MatRef}(undef, prod(dims))
+    readvalues!(marks, f, oi, name)
+    return marks[lin].addr
+end
+
+"""
+Follow `path` one step at a time from a starting point.
 
 `addr` is where the walk stands and is negative at the top of the file, which has no object of
 its own. `names` and `addrs` are what that starting point contains.
+
+One element of a struct array is not an object of its own: the array keeps one list of marks
+per field, so the element is settled only by the field named after it. Such an index is
+therefore held in `pending` until the next name arrives.
 """
 function walkpath(
         f::MatFile, addr::Int, names::Vector{String}, addrs::Vector{Int}, path::String,
     )
+    pending = Int[]
+    pendingpart = ""
     for part in split(path, '/'; keepempty = false)
+        subs = indexstep(part)
+        if !isnothing(subs)
+            isempty(pending) || error(
+                "\"", path, "\" has two indexes in a row; one index names one item",
+            )
+            addr >= 0 || error(
+                "\"", path, "\" starts with an index; a file holds variables by name",
+            )
+            oi = objinfo(f.h5, addr)
+            if isgroup(oi)
+                if isstructarraygroup(f, oi)
+                    pending = subs
+                    pendingpart = String(part)
+                    continue
+                end
+                # MATLAB counts a single struct as a 1x1 struct array, so `s(1)` is `s` and
+                # nothing else exists to name.
+                (isone(length(subs)) && isone(subs[1])) || error(
+                    "index \"", part, "\" in \"", path,
+                    "\" names a single struct, which holds only item 1",
+                )
+                continue
+            end
+            ismarklist(oi) || error(
+                "index \"", part, "\" in \"", path, "\" names a ", oi.mclass,
+                " array, which is read whole; index the result instead",
+            )
+            addr = markat(f, oi, path, subs, part, path)
+            names, addrs = groupentries(f.h5, addr)
+            continue
+        end
         found = -1
         for i in eachindex(names)
             if names[i] == part
@@ -194,9 +325,21 @@ function walkpath(
             found = objectproperty(f, oi, String(part))
         end
         found >= 0 || error("no variable or field named \"", path, "\" in this file")
+        if !isempty(pending)
+            foi = objinfo(f.h5, found)
+            ismarklist(foi) || error(
+                "\"", part, "\" in \"", path, "\" is not a field of a struct array",
+            )
+            found = markat(f, foi, path, pending, pendingpart, path)
+            pending = Int[]
+        end
         addr = found
         names, addrs = groupentries(f.h5, addr)
     end
+    isempty(pending) || error(
+        "\"", path, "\" ends at one element of a struct array, which is not an object of its ",
+        "own; name a field of it, as in \"", path, "/a\"",
+    )
     addr >= 0 || error("empty path")
     return addr
 end
@@ -537,7 +680,8 @@ an error. It does not read the bytes as the wrong type.
 
 Use the `String` method instead for one row of text.
 
-`name` can be a path, such as `"s/a"`. It can also be a [`MatRef`](@ref).
+`name` can be a path, such as `"s/a"`, with a step of digits for one item of a cell or struct
+array, such as `"runs/2/a"`. It can also be a [`MatRef`](@ref).
 
 The result matches what MATLAB shows. Nothing is turned around.
 """
@@ -576,12 +720,23 @@ class stored as one type and returned as another — `char`, held as code units 
 layout handling without going through the datatype checks a second time.
 """
 function readvalues(f::MatFile, oi::ObjInfo, name::String, ::Type{Array{T, N}}) where {T, N}
+    out = Array{T, N}(undef, ntuple(k -> matdim(oi.dims, k, oi.nd), Val(N)))
+    return readvalues!(out, f, oi, name)
+end
+
+"""
+Fill `out` with the elements of a dataset, in the order they are stored.
+
+`out` holds one element for each the dataset holds and is filled through linear indexing, so
+its own shape is its caller's business: a flat `Vector` is as good as an array of the rank the
+file gives.
+"""
+function readvalues!(out::Array{T}, f::MatFile, oi::ObjInfo, name::String) where {T}
     # Callers that skip the class checks, such as the subsystem, still may not read elements
     # at the wrong width: every later step would be reading from the wrong place.
     oi.dt_size == sizeof(T) || error(
         "variable \"", name, "\" stores ", oi.dt_size, "-byte elements, not ", sizeof(T),
     )
-    out = Array{T, N}(undef, ntuple(k -> matdim(oi.dims, k, oi.nd), Val(N)))
     # Nothing to read, and a writer may give such a dataset no storage at all, as MAT.jl does
     # for an empty cell.
     isempty(out) && return out

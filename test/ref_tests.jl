@@ -162,3 +162,68 @@ end
     g = matopen(fixture("array.mat"))
     @test_throws "holds 4 values, not 1" matread(g, "a2x2", Float64)
 end
+
+@testitem "an index in a path names one item of a cell array" setup = [Marks] begin
+    mktempdir() do dir
+        f = matopen(markfile(dir))
+        @test matread(f, "runs/1/count", Float64) === 4.0
+        @test matread(f, "runs/2/count", Float64) === 7.0
+        @test matread(f, "runs/1/inner/values", Matrix{Float64}) == [1.0 2.0 3.0]
+        # An index may stand anywhere a name may, including over a cell inside a struct.
+        @test matread(f, "runs/1/parts/name/2", String) == "second"
+        @test matread(f, "runs/1/label", String) == "run one"
+        # An index reaches the same value a mark does.
+        runs = matread(f, "runs", Matrix{MatRef})
+        @test matread(f, runs[1, 2], "count", Float64) === matread(f, "runs/2/count", Float64)
+        # The untyped read and the key list take the same path.
+        @test matread(f, "runs/2/count") == fill(7.0, 1, 1)
+        @test sort(matkeys(f, "runs/2")) == ["count", "inner", "label", "parts"]
+    end
+end
+
+@testitem "an index in a path names one element of a struct array" setup = [Fixtures] begin
+    # `s2` is a 1x2 struct array and `s` a single struct, both written by MATLAB.
+    f = matopen(fixture("struct.mat"))
+    @test matread(f, "s2/1/a", Float64) === 1.0
+    @test matread(f, "s2/2/a", Float64) === 2.0
+    # MATLAB counts a single struct as a 1x1 struct array, so `s(1)` is `s`.
+    @test matread(f, "s/1/b", Matrix{Float64}) == [1.0 2.0]
+    @test matread(f, "s/b", Matrix{Float64}) == [1.0 2.0]
+    # One element of a struct array is spread across the fields, so it is no object on its own.
+    @test_throws "ends at one element of a struct array" matread(f, "s2/1", Float64)
+    @test_throws "past the end of a 1x2" matread(f, "s2/3/a", Float64)
+    @test_throws "names a single struct, which holds only item 1" matread(f, "s/2/b", Float64)
+    # An element of a struct array waits for the field that settles it, so a second index has
+    # nothing to apply to.
+    @test_throws "two indexes in a row" matread(f, "s2/1/2/a", Float64)
+end
+
+@testitem "an index takes one subscript or all of them" setup = [Marks] begin
+    mktempdir() do dir
+        path = joinpath(dir, "grid.mat")
+        # A 2x3 cell, so counting straight through and counting by row and column differ.
+        matwrite(path, "c" => reshape(Any[(v = Float64(i),) for i in 1:6], 2, 3))
+        f = matopen(path)
+        @test matsize(f, "c") == [2, 3]
+        @test matread(f, "c/1/v", Float64) === 1.0
+        @test matread(f, "c/6/v", Float64) === 6.0
+        # MATLAB counts down the columns first, so item 6 is also row 2, column 3.
+        @test matread(f, "c/2,3/v", Float64) === 6.0
+        @test matread(f, "c/1,1/v", Float64) === 1.0
+        @test matread(f, "c/2,1/v", Float64) === 2.0
+    end
+end
+
+@testitem "a path index that names nothing stops with an error" setup = [Marks] begin
+    mktempdir() do dir
+        f = matopen(markfile(dir))
+        @test_throws "past the end of a 1x2, which holds 2 items" matread(f, "runs/3/count", Float64)
+        @test_throws "counts from 1" matread(f, "runs/0/count", Float64)
+        @test_throws "give one, or give all 2" matread(f, "runs/1,1,1/count", Float64)
+        @test_throws "is outside a 1x2" matread(f, "runs/2,2/count", Float64)
+        # A number array is read whole, so there is nothing for an index to name.
+        @test_throws "read whole; index the result instead" matread(f, "runs/1/count/1", Float64)
+        @test_throws "holds only item 1" matread(f, "runs/1/2", Float64)
+        @test_throws "a file holds variables by name" matread(f, "1/count", Float64)
+    end
+end

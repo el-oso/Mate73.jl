@@ -138,14 +138,18 @@ end
         matwrite(path, "cfg" => sample(2.5))
         ours = matstructs(matread(path)["cfg"], :Cfg)
         theirs = matstructs(MAT.matread(path)["cfg"], :Cfg)
+        @test ours isa Expr
+        @test ours.head === :block
+        @test all(d -> d isa Expr && d.head === :struct, ours.args)
         @test ours == theirs
-        @test occursin("gain::Float64", ours)          # a 1x1 is a scalar
-        @test occursin("runs::Matrix{CfgRuns}", ours)
-        @test occursin("name::String", ours)           # MAT.jl's one-letter Char is text
-        @test occursin("tags::Matrix{String}", ours)
-        @test occursin("mixed::Tuple{Matrix{Float64}, String}", ours)
+        src = string(ours)
+        @test occursin("gain::Float64", src)          # a 1x1 is a scalar
+        @test occursin("runs::Matrix{CfgRuns}", src)
+        @test occursin("name::String", src)           # MAT.jl's one-letter Char is text
+        @test occursin("tags::Matrix{String}", src)
+        @test occursin("mixed::Tuple{Matrix{Float64}, String}", src)
 
-        nt = matstructs(sample(2.5), :Cfg)
+        nt = string(matstructs(sample(2.5), :Cfg))
         @test occursin("runs::Vector{CfgRuns}", nt)  # a tuple is a cell of one row
         @test occursin("tags::Vector{String}", nt)
     end
@@ -155,8 +159,8 @@ end
     mktempdir() do dir
         path = joinpath(dir, "t.mat")
         matwrite(path, "cfg" => sample(2.5))
-        Base.include_string(@__MODULE__, matstructs(matread(path)["cfg"], :DCfg))
-        Base.include_string(@__MODULE__, matstructs(sample(2.5), :NCfg))
+        Base.eval(@__MODULE__, matstructs(matread(path)["cfg"], :DCfg))
+        Base.eval(@__MODULE__, matstructs(sample(2.5), :NCfg))
         for d in (matread(path)["cfg"], MAT.matread(path)["cfg"])
             s = @invokelatest tostruct(DCfg, d)
             @test s.gain == 2.5
@@ -204,7 +208,7 @@ end
         @eval readrun(p) = matread(p, TRun)
         @test only(@invokelatest Base.return_types(readrun, (String,))) === TRun
 
-        @test_throws "has no variable \"nope\"" @eval @matstructs X $template "nope"
+        @test_throws "no variable or field named \"nope\"" @eval @matstructs X $template "nope"
     end
 end
 
@@ -218,7 +222,7 @@ end
         @eval @matstructs WCfg $first unwrap
 
         # The name of the template's own variable is in neither the type nor its fields.
-        @test !occursin("run_2023", matstructs(matread(first)["run_2023"], :WCfg))
+        @test !occursin("run_2023", string(matstructs(matread(first)["run_2023"], :WCfg)))
         for (path, gain) in ((first, 1.0), (second, 7.0))
             f = matopen(path)
             cfg = @invokelatest matread(f, only(keys(f)), WCfg)
@@ -245,12 +249,11 @@ end
                 "blank" => Float64[],                    # an empty array of numbers
             ),
         )
-        src = matstructs(matread(path)["cfg"], :OCfg)
-        # Nothing to take a type from, so no field is written and the reason stands in its place.
+        d = matread(path)["cfg"]
+        # Nothing to take a type from, so no field is written and a warning names it.
+        src = string(@test_logs (:warn, r"does not name notes, opt") matstructs(d, :OCfg))
         @test !occursin("opt::", src)
         @test !occursin("notes::", src)
-        @test occursin("# opt: a struct with no fields in a template", src)
-        @test occursin("# notes: an empty cell in a template", src)
         # An empty array of numbers does carry its own type, so it is described.
         @test occursin("blank::", src)
         @test occursin("gain::Float64", src)
@@ -313,5 +316,30 @@ end
             @test matread(f, "cfg/items", Tuple{Vector{Any}, String}) == (Any[], "x")
             @test matread(f, "cfg/notes", Vector{Any}) == Any[]
         end
+    end
+end
+
+@testitem "@matstructs takes a path into the template" setup = [Template] begin
+    mktempdir() do dir
+        template = joinpath(dir, "template.mat")
+        today = joinpath(dir, "today.mat")
+        matwrite(template, "cfg" => sample(1.0))
+        matwrite(today, "cfg" => sample(7.0))
+        # A field of a variable, and one item of a cell array of structs.
+        @eval @matstructs PLim $template "cfg/limits"
+        @eval @matstructs PRun $template "cfg/runs/1"
+        @test @eval(fieldnames(PLim)) == (:hi, :lo)
+        @test @eval(fieldnames(PRun)) == (:name, :ok)
+
+        f = matopen(today)
+        @test (@invokelatest matread(f, "cfg/limits", PLim)).hi == 70.0
+        # The items of a cell share a shape, so the type written from one reads any of them.
+        @test (@invokelatest matread(f, "cfg/runs/2", PRun)).name == "b"
+        @test (@invokelatest matread(f, "cfg/runs", Matrix{PRun}))[1].ok
+
+        @test_throws "no variable or field named" @eval @matstructs PX $template "cfg/nope"
+        @test_throws "is not a struct, so it has no fields" @eval(
+            @matstructs PY $template "cfg/gain"
+        )
     end
 end

@@ -60,6 +60,11 @@ file first when you want several, so it is read once rather than once for each v
 A mark is what a cell array gives you for each of its items. A path may start at one instead of
 at the top of the file, which is how you reach a field of a struct held in a cell.
 
+A step of digits in a path is an index into a cell or struct array, counted as MATLAB counts:
+`matread(f, "runs/2/count", Float64)`, or `"runs/1,2/count"` by row and column. One element of
+a struct array is spread across its fields, so an index into one has to be followed by a field
+name.
+
 The short way works out the type from the file, as MAT.jl does. Use it in ordinary Julia code.
 
 The long way exists for a tool named `juliac`. That tool builds a small program from Julia
@@ -120,6 +125,7 @@ all of them fully typed. [Example: test runs](example.md) walks through it end t
 
 ```julia
 @matstructs Cfg "template.mat" "cfg"     # the types of one variable
+@matstructs Lim "template.mat" "cfg/limits" # a field, or "cfg/runs/1" for one cell item
 @matstructs Cfg "template.mat" unwrap    # the only variable, whatever it is called
 @matstructs Run "template.mat"           # one field for every variable in the file
 @matstructs Run ["a.mat", "b.mat"] "run" # what several templates agree on
@@ -180,8 +186,8 @@ opt = isempty(matkeys(f, "run/opt")) ? nothing : matread(f, "run/opt", Opt)
 
 If a template is not representative, leaving it out of the list is the other answer.
 
-To see or edit the definitions instead, `print(matstructs(matread("template.mat")["cfg"], :Cfg))`
-writes the same code as text; `matstructs` also takes a `Dict` from MAT.jl or a nested
+To see or edit the definitions instead, `println(matstructs(matread("template.mat")["cfg"], :Cfg))`
+writes the same definitions as code; `matstructs` also takes a `Dict` from MAT.jl or a nested
 `NamedTuple`. `tostruct(Cfg, d)` converts a `Dict` or `NamedTuple` you already hold into those
 types. From a `NamedTuple` it works inside a small compiled program; from a `Dict{String,Any}`
 it cannot, since every value is `Any` until the program runs.

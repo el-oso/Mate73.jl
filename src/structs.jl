@@ -132,10 +132,7 @@ end
 Does the field at `key` belong to a struct array? Each field of one is an array of marks with
 no MATLAB class of its own. A cell held as the field of a single struct is marked `cell`.
 """
-function isstructarrayfield(f::MatFile, key)
-    oi = objinfo(f.h5, address(f, key))
-    return oi.dt_class == DT_REFERENCE && isempty(oi.mclass)
-end
+isstructarrayfield(f::MatFile, key) = ismarkfield(objinfo(f.h5, address(f, key)))
 
 """
 A struct array, read into an array of structs of your own. A single struct is a 1x1 struct

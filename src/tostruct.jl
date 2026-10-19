@@ -16,16 +16,20 @@ recordget(d::AbstractDict, k::String, s::Symbol) = haskey(d, k) ? d[k] : d[s]
 recordget(nt::NamedTuple, ::String, s::Symbol) = getfield(nt, s)
 
 """
-    matstructs(d, name::Symbol) -> String
+    matstructs(d, name::Symbol) -> Expr
 
-Write the Julia source of struct definitions that match the shape of `d`, a nested Dict or
+Write the Julia code of struct definitions that match the shape of `d`, a nested Dict or
 NamedTuple, with `name` for the
-outermost one. Print it and paste it into your code.
+outermost one. Print it and paste it into your code, or `eval` it.
 
 ```julia
 d = matread("sample.mat")["cfg"]
-print(matstructs(d, :Cfg))
+println(matstructs(d, :Cfg))
 ```
+
+The result is a `block` holding one `struct` definition for each type, each after the ones it
+uses, which is the order they have to be defined in. [`@matstructs`](@ref) places the same
+definitions for you.
 
 | in the Dict | the field type |
 |---|---|
@@ -35,28 +39,25 @@ print(matstructs(d, :Cfg))
 | an array of mixed items | a `Tuple` of their types |
 | anything else | its own type, such as `Matrix{Float64}` or `String` |
 
-Fields are written in sorted order. A key that is not a valid Julia name is written as
+Fields are written in sorted order. A key that is not a valid Julia name prints back as
 `var"key"`. Check the result: it describes this sample, so a field that is sometimes a scalar
 and sometimes a matrix needs the wider type written in by hand.
 
-A field `d` cannot describe gets no type and no field. A struct with no fields and an empty
-cell hold nothing to take a type from, so a comment stands in the field's place saying which
-it was:
-
-```julia
-struct Cfg
-    gain::Float64
-    # opt: a struct with no fields in a template, so its type is unknown
-end
-```
-
-An empty array of numbers or text is described, since it carries its own element type.
-[`@matstructs`](@ref) takes several templates to describe more.
+A field `d` cannot describe gets no type and no field, and a warning names it. A struct with
+no fields and an empty cell hold nothing to take a type from. An empty array of numbers or
+text is described, since it carries its own element type. [`@matstructs`](@ref) takes several
+templates to describe more.
 """
 function matstructs(d::Record, name::Symbol)
-    defs = String[]
-    structdef!(defs, Set{String}(), String[], d, String(name), "")
-    return join(defs, "\n")
+    defs = Expr[]
+    left = String[]
+    structdef!(defs, Set{String}(), left, d, String(name), "")
+    isempty(left) || @warn string(
+        "matstructs: ", name, " does not name ", join(left, ", "),
+        ". Each one is empty here, so there is nothing to take a type from. Write the field ",
+        "in by hand, or take the shape from a sample that has it.",
+    )
+    return Expr(:block, defs...)
 end
 
 "The path of the field `k` of the record at `path`, as the messages name it."
@@ -83,17 +84,15 @@ empty array of numbers or text does say, since it carries its own element type.
 """
 isdescribed(v) = !((v isa Record || iscellvalue(v)) && isempty(v))
 
-"What kind of empty value `v` is, for a message."
-emptykind(v) = v isa Record ? "a struct with no fields" : "an empty cell"
-
 """
-Add the definition for `d`, after the definitions it uses, and give back its type name.
+Add the definition for `d` to `defs`, after the definitions it uses, and give back its type
+name.
 
 A field no template describes is left out, since there is no type to write for it, and its
-path is added to `left`. The definition keeps a comment in its place.
+path is added to `left` for the caller to report.
 """
 function structdef!(
-        defs::Vector{String}, taken::Set{String}, left::Vector{String}, d::Record,
+        defs::Vector{Expr}, taken::Set{String}, left::Vector{String}, d::Record,
         name::String, path::String,
     )
     tname = name
@@ -103,24 +102,19 @@ function structdef!(
         tname = string(name, n)
     end
     push!(taken, tname)
-    lines = String[]
+    fields = Expr[]
     for k in sort!(recordkeys(d))
         v = recordget(d, k, Symbol(k))
         if !isdescribed(v)
             pushpath!(left, path, k)
-            push!(
-                lines,
-                string("    # ", k, ": ", emptykind(v), " in a template, so its type is unknown"),
-            )
             continue
         end
-        ftype = fieldtypestring!(
+        ftype = fieldtypeexpr!(
             defs, taken, left, v, string(tname, uppercasefirst(k)), childpath(path, k),
         )
-        fname = Base.isidentifier(k) ? k : string("var\"", k, "\"")
-        push!(lines, string("    ", fname, "::", ftype))
+        push!(fields, Expr(:(::), Symbol(k), ftype))
     end
-    push!(defs, string("struct ", tname, "\n", join(lines, "\n"), isempty(lines) ? "" : "\n", "end\n"))
+    push!(defs, Expr(:struct, false, Symbol(tname), Expr(:block, fields...)))
     return tname
 end
 
@@ -129,37 +123,49 @@ The type to write for one plain value. A 1x1 number is a number, since this pack
 MATLAB scalar as a 1x1 array, and one character is text, since MAT.jl gives a one-character
 `char` as a `Char`.
 """
-leaftype(v) = string(typeof(v))
-leaftype(::AbstractChar) = "String"
-leaftype(v::AbstractArray{<:Number}) = length(v) == 1 ? string(eltype(v)) : string(typeof(v))
+leaftype(v) = typeof(v)
+leaftype(::AbstractChar) = String
+leaftype(v::AbstractArray{<:Number}) = length(v) == 1 ? eltype(v) : typeof(v)
 
-"The array type of `N` dimensions holding `elt`, written the way Julia prints it."
-arraytype(elt::String, N::Int) =
-    N == 1 ? string("Vector{", elt, "}") : N == 2 ? string("Matrix{", elt, "}") :
-    string("Array{", elt, ", ", N, "}")
+"""
+The type of an `N`-dimensional array holding `elt`.
+
+`elt` is a type when it is already defined, and the name of one when it is a struct being
+defined here, which has no type yet.
+"""
+arraytype(elt::Type, N::Int) = Array{elt, N}
+function arraytype(elt, N::Int)
+    N == 1 && return Expr(:curly, :Vector, elt)
+    N == 2 && return Expr(:curly, :Matrix, elt)
+    return Expr(:curly, :Array, elt, N)
+end
 
 "Is `x` one plain value rather than a container of several?"
 isplain(x) = !(x isa Union{Items, Record}) || (x isa AbstractArray{<:Number} && length(x) == 1)
 
-function fieldtypestring!(
-        defs::Vector{String}, taken::Set{String}, left::Vector{String}, v, name::String,
+"""
+The type to write for the field holding `v`: a type, or an expression naming the structs being
+defined here, which have no type yet.
+"""
+function fieldtypeexpr!(
+        defs::Vector{Expr}, taken::Set{String}, left::Vector{String}, v, name::String,
         path::String,
     )
-    v isa Record && return structdef!(defs, taken, left, v, name, path)
+    v isa Record && return Symbol(structdef!(defs, taken, left, v, name, path))
     if iscellvalue(v) && !isempty(v)
         # A tuple is a cell of one row, as `matwrite` writes it.
         N = v isa Tuple ? 1 : ndims(v)
         if all(x -> x isa Record, v) && allequal(Set(recordkeys(x)) for x in v)
             # One struct for every item; its field types come from the first item.
-            return arraytype(structdef!(defs, taken, left, first(v), name, path), N)
+            return arraytype(Symbol(structdef!(defs, taken, left, first(v), name, path)), N)
         elseif all(isplain, v) && allequal(leaftype(x) for x in v)
             return arraytype(leaftype(first(v)), N)
         end
-        items = String[
-            fieldtypestring!(defs, taken, left, x, string(name, i), string(path, i))
+        items = Any[
+            fieldtypeexpr!(defs, taken, left, x, string(name, i), string(path, i))
                 for (i, x) in enumerate(v)
         ]
-        return string("Tuple{", join(items, ", "), "}")
+        return Expr(:curly, :Tuple, items...)
     end
     return leaftype(v)
 end
@@ -295,6 +301,7 @@ end
 
 """
     @matstructs Name "template.mat" "variable"
+    @matstructs Name "template.mat" "variable/field"
     @matstructs Name "template.mat" unwrap
     @matstructs Name "template.mat"
     @matstructs Name ["first.mat", "second.mat"] "variable"
@@ -308,6 +315,8 @@ into them with the typed reads, so the program that does the reading never sees 
 
 ```julia
 @matstructs Cfg "template.mat" "cfg"     # one variable
+@matstructs Lim "template.mat" "cfg/limits"  # a field of it
+@matstructs One "template.mat" "runs/1"  # one item of a cell or struct array
 @matstructs Cfg "template.mat" unwrap    # the only variable, whatever it is called
 @matstructs Run "template.mat"           # every variable, one field each
 
@@ -315,6 +324,9 @@ cfg = matread(matopen("today.mat"), "cfg", Cfg)
 run = matread("today.mat", Run)
 cfg.limits.hi
 ```
+
+The name is a path with the same syntax the typed reads use: fields separated by `/`, and a
+number for one item of a cell or struct array. See [`matread`](@ref).
 
 `unwrap` is for a file that wraps one struct in a name that changes from file to file, such as
 the name the struct had in MATLAB or the name of the file. It drops that layer, so the types
@@ -352,8 +364,9 @@ run = matread(f, "run", Run)
 opt = isempty(matkeys(f, "run/opt")) ? nothing : matread(f, "run/opt", Opt)
 ```
 
-Write `Opt` by hand, or print it with `matstructs(matread("runs/run_042.mat")["run"]["opt"],
-:Opt)`. If a template is not representative, leaving it out of the list is the other answer.
+Define `Opt` with `@matstructs Opt "runs/run_042.mat" "run/opt"`, or print the definitions
+with `println(matstructs(matread("runs/run_042.mat")["run"]["opt"], :Opt))` and edit them. If
+a template is not representative, leaving it out of the list is the other answer.
 
 A relative path is taken from the file the macro is in, as `include` does. Every template is
 recorded as a dependency, so a package that uses the macro is compiled again when one of them
@@ -364,10 +377,10 @@ macro matstructs(name, path, var...)
     length(var) <= 1 && all(v -> v isa String || v === :unwrap, var) ||
         error("@matstructs: give at most one variable name, as a string literal, or `unwrap`")
     files = templatefiles(path, __source__)
-    ds = Record[templaterecord(matread(file), file, var) for file in files]
+    ds = Record[templaterecord(file, var) for file in files]
     left = String[]
     merged = mergerecords(ds, left, "")
-    defs = String[]
+    defs = Expr[]
     structdef!(defs, Set{String}(), left, merged, String(name), "")
     isempty(left) || @warn string(
         "@matstructs: ", name, " does not name ", join(left, ", "),
@@ -375,9 +388,8 @@ macro matstructs(name, path, var...)
         "could not be read into the type. Read each where it is there, as in ",
         "`matread(f, \"cfg/opt\", T)`, or leave out a template that is not representative.",
     )
-    code = Meta.parseall(join(defs, "\n"))
     deps = Expr[:(Base.include_dependency($file)) for file in files]
-    return esc(Expr(:toplevel, deps..., code.args..., nothing))
+    return esc(Expr(:toplevel, deps..., defs..., nothing))
 end
 
 """
@@ -397,21 +409,26 @@ function templatefiles(path, source::LineNumberNode)
     return String[abspath(dir, p) for p in paths]
 end
 
-"The record one template contributes: the whole file, or the one variable the macro was given."
-function templaterecord(d::Record, file::String, var)
-    isempty(var) && return d
-    key = if var[1] === :unwrap
-        length(d) == 1 || error(
-            "@matstructs: \"", file, "\" has ", length(d),
+"""
+The record one template contributes: the whole file, or the place inside it the macro names.
+
+A name is a path, with the syntax the typed reads use, so a template may point at a field or
+at one item of a cell or struct array: `"cfg/limits"`, `"runs/1"`.
+"""
+function templaterecord(file::String, var)
+    isempty(var) && return matread(file)
+    f = matopen(file)
+    path = if var[1] === :unwrap
+        names = keys(f)
+        length(names) == 1 || error(
+            "@matstructs: \"", file, "\" has ", length(names),
             " variables, so there is nothing to unwrap",
         )
-        only(keys(d))
+        only(names)
     else
-        haskey(d, var[1]) ||
-            error("@matstructs: \"", file, "\" has no variable \"", var[1], "\"")
         var[1]
     end
-    v = d[key]
-    v isa Record || error("@matstructs: \"", key, "\" is not a struct, so it has no fields")
+    v = matread(f, path)
+    v isa Record || error("@matstructs: \"", path, "\" is not a struct, so it has no fields")
     return v
 end

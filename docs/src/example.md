@@ -37,10 +37,10 @@ defines one struct for the file and one for each struct inside it.
 nothing # hide
 ```
 
-To see what it defined, `matstructs` gives the same code as text:
+To see what it defined, `matstructs` gives the same definitions as code:
 
 ```@example runs
-print(matstructs(matread("runs/run_001.mat"), :Run))
+println(matstructs(matread("runs/run_001.mat"), :Run))
 ```
 
 A 1x1 number became a `Float64` or a `Bool`, each struct became a type named after its place,

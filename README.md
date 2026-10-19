@@ -147,6 +147,7 @@ all of them fully typed.
 
 ```julia
 @matstructs Cfg "template.mat" "cfg"     # the types of one variable
+@matstructs Lim "template.mat" "cfg/limits" # a field, or "cfg/runs/1" for one cell item
 @matstructs Cfg "template.mat" unwrap    # the only variable, whatever it is called
 @matstructs Run "template.mat"           # one field for every variable in the file
 @matstructs Run ["a.mat", "b.mat"] "run" # what several templates agree on
@@ -207,8 +208,8 @@ opt = isempty(matkeys(f, "run/opt")) ? nothing : matread(f, "run/opt", Opt)
 
 If a template is not representative, leaving it out of the list is the other answer.
 
-To see or edit the definitions instead, `print(matstructs(matread("template.mat")["cfg"], :Cfg))`
-writes the same code as text; `matstructs` also takes a `Dict` from MAT.jl or a nested
+To see or edit the definitions instead, `println(matstructs(matread("template.mat")["cfg"], :Cfg))`
+writes the same definitions as code; `matstructs` also takes a `Dict` from MAT.jl or a nested
 `NamedTuple`. `tostruct(Cfg, d)` converts a `Dict` or `NamedTuple` you already hold into those
 types. From a `NamedTuple` it works inside a small compiled program; from a `Dict{String,Any}`
 it cannot, since every value is `Any` until the program runs.
@@ -279,6 +280,16 @@ matread(f, "s/a", Matrix{Float64})        # one field, by path
 ```
 
 A cell inside a cell gives you more marks. The steps stay the same.
+
+A step of digits in a path is an index into a cell or struct array, counted as MATLAB counts:
+
+```julia
+matread(f, "runs/2/count", Float64)       # item 2 of the cell `runs`
+matread(f, "runs/1,2/count", Float64)     # row 1, column 2, when one number is not enough
+```
+
+One element of a struct array is spread across its fields, so an index into one has to be
+followed by a field name.
 
 **A path can also start at a mark.** This is how you read a field of a struct held in a cell:
 
